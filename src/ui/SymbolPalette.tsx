@@ -1,0 +1,93 @@
+import { useMemo, useState } from "react";
+import { CATEGORY_LABELS, SYMBOL_CATALOG, symbolDataUrl, type SymbolCategory } from "../catalog/symbols";
+import {
+  setCableStyle,
+  setPendingSymbol,
+  setTool,
+  useEditor,
+} from "../state/editorStore";
+
+const COLORS = ["#1d4ed8", "#b91c1c", "#15803d", "#b45309", "#6d28d9", "#111827", "#0f766e"];
+
+export function SymbolPalette() {
+  const tool = useEditor((s) => s.tool);
+  const pending = useEditor((s) => s.pendingSymbolKind);
+  const cableColor = useEditor((s) => s.cableColor);
+  const cableWidth = useEditor((s) => s.cableWidth);
+  const cableStyle = useEditor((s) => s.cableStyle);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return SYMBOL_CATALOG.filter((item) => !q || item.name.toLowerCase().includes(q) || item.kind.includes(q));
+  }, [query]);
+
+  const categories = ["switches", "sockets", "lighting"] as SymbolCategory[];
+
+  return (
+    <aside className="left-panel">
+      <h2 className="panel-title">Narzędzia</h2>
+      <div className="tool-row">
+        <button type="button" className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>Zaznacz</button>
+        <button type="button" className={tool === "pan" ? "active" : ""} onClick={() => setTool("pan")}>Przesuwanie</button>
+        <button type="button" className={tool === "cable" ? "active" : ""} onClick={() => setTool("cable")}>Przewód</button>
+        <button type="button" className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}>Tekst</button>
+      </div>
+      {tool === "cable" && (
+        <div className="section">
+          <label className="field">Kolor
+            <div className="row">
+              {COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  className={cableColor === color ? "active" : ""}
+                  style={{ background: color, width: 22, height: 22, padding: 0 }}
+                  onClick={() => setCableStyle({ cableColor: color })}
+                  aria-label={color}
+                />
+              ))}
+              <input type="color" value={cableColor} onChange={(e) => setCableStyle({ cableColor: e.target.value })} />
+            </div>
+          </label>
+          <label className="field">Grubość
+            <input type="number" min={1} max={12} value={cableWidth} onChange={(e) => setCableStyle({ cableWidth: Number(e.target.value) || 3 })} />
+          </label>
+          <label className="field">Styl
+            <select value={cableStyle} onChange={(e) => setCableStyle({ cableStyle: e.target.value as "solid" | "dashed" })}>
+              <option value="solid">Ciągła</option>
+              <option value="dashed">Przerywana</option>
+            </select>
+          </label>
+          <p className="legend">Klikaj kolejne punkty. Enter lub podwójne kliknięcie kończy trasę.</p>
+        </div>
+      )}
+      <h2 className="panel-title">Symbole</h2>
+      <input className="search" placeholder="Szukaj symbolu…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {categories.map((category) => {
+        const items = filtered.filter((item) => item.category === category);
+        if (items.length === 0) return null;
+        return (
+          <div key={category}>
+            <div className="symbol-cat">{CATEGORY_LABELS[category]}</div>
+            <div className="symbol-grid">
+              {items.map((item) => (
+                <button
+                  key={item.kind}
+                  type="button"
+                  className={pending === item.kind ? "active" : ""}
+                  onClick={() => setPendingSymbol(item.kind)}
+                >
+                  <span className="symbol-btn">
+                    <img src={symbolDataUrl(item)} alt="" />
+                    {item.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </aside>
+  );
+}
