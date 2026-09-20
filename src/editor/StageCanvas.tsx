@@ -9,15 +9,18 @@ import {
   commitCablePoints,
   commitElementPatch,
   commitMove,
+  commitCableSegment,
   finishCable,
   placeAt,
+  previewCableSegment,
+  startCableSegment,
   selectIds,
   setPan,
   setViewport,
   setZoom,
   useEditor,
 } from "../state/editorStore";
-import { SYMBOL_SIZE } from "./exportDoc";
+import { SYMBOL_SIZE, symbolLabelPosition } from "./exportDoc";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -33,7 +36,7 @@ function elementBox(el: OverlayElement): Box {
   if (isText(el)) {
     return { x: el.x, y: el.y, width: Math.max(40, el.text.length * el.fontSize * 0.6), height: el.fontSize + 6 };
   }
-  return { x: el.x, y: el.y, width: SYMBOL_SIZE * el.scale, height: SYMBOL_SIZE * el.scale + 16 };
+  return { x: el.x, y: el.y, width: SYMBOL_SIZE * el.scale + 40, height: SYMBOL_SIZE * el.scale };
 }
 
 function intersects(a: Box, b: Box): boolean {
@@ -53,6 +56,7 @@ export function StageCanvas() {
   const [panning, setPanning] = useState(false);
   const lastPointer = useRef<Point | null>(null);
   const marqueeStart = useRef<Point | null>(null);
+  const drawingCable = useRef(false);
 
   const project = useEditor((s) => s.project);
   const backgroundDataUrl = useEditor((s) => s.backgroundDataUrl);
@@ -108,6 +112,14 @@ export function StageCanvas() {
   }, []);
 
   useEffect(() => {
+    const onUp = (e: MouseEvent) => {
+      if (e.button === 0) endCableStroke();
+    };
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, []);
+
+  useEffect(() => {
     const tr = trRef.current;
     if (!tr) return;
     const nodes = selectedIds
@@ -152,11 +164,29 @@ export function StageCanvas() {
     setPan({ x: pointer.x - world.x * clamped, y: pointer.y - world.y * clamped });
   }
 
+  function endCableStroke() {
+    if (!drawingCable.current) return;
+    drawingCable.current = false;
+    commitCableSegment();
+  }
+
   function onMouseDown(evt: Konva.KonvaEventObject<MouseEvent>) {
     const isPan = tool === "pan" || space.current || evt.evt.button === 1;
     if (isPan) {
       setPanning(true);
       lastPointer.current = { x: evt.evt.clientX, y: evt.evt.clientY };
+      return;
+    }
+    if (tool === "cable" && evt.evt.button === 2) {
+      evt.evt.preventDefault();
+      drawingCable.current = false;
+      finishCable();
+      return;
+    }
+    if (evt.evt.button !== 0) return;
+    if (tool === "cable") {
+      drawingCable.current = true;
+      startCableSegment(toCanvas(evt));
       return;
     }
     const clickedStage = evt.target === evt.target.getStage() || evt.target.getClassName() === "Rect" && evt.target.name() === "bg";
@@ -172,6 +202,14 @@ export function StageCanvas() {
   }
 
   function onMouseMove(evt: Konva.KonvaEventObject<MouseEvent>) {
+    if (drawingCable.current) {
+      if ((evt.evt.buttons & 1) === 0) {
+        endCableStroke();
+        return;
+      }
+      previewCableSegment(toCanvas(evt));
+      return;
+    }
     if (panning && lastPointer.current) {
       const dx = evt.evt.clientX - lastPointer.current.x;
       const dy = evt.evt.clientY - lastPointer.current.y;
@@ -192,6 +230,7 @@ export function StageCanvas() {
   }
 
   function onMouseUp(evt: Konva.KonvaEventObject<MouseEvent>) {
+    endCableStroke();
     if (panning) {
       setPanning(false);
       lastPointer.current = null;
@@ -216,8 +255,11 @@ export function StageCanvas() {
     }
   }
 
-  function onDblClick() {
-    if (tool === "cable") finishCable();
+  function onContextMenu(evt: Konva.KonvaEventObject<PointerEvent>) {
+    if (tool !== "cable") return;
+    evt.evt.preventDefault();
+    drawingCable.current = false;
+    finishCable();
   }
 
   return (
@@ -235,7 +277,7 @@ export function StageCanvas() {
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
-          onDblClick={onDblClick}
+          onContextMenu={onContextMenu}
           draggable={false}
         >
           <Layer>
@@ -274,6 +316,7 @@ export function StageCanvas() {
               }
               if (isSymbol(el)) {
                 const image = symbolImage(el.kind);
+                const canMove = !isLocked && (tool === "select" || tool === "symbol");
                 return (
                   <KonvaImage
                     key={el.id}
@@ -285,10 +328,10 @@ export function StageCanvas() {
                     rotation={el.rotation}
                     scaleX={el.scale}
                     scaleY={el.scale}
-                    draggable={tool === "select" && !isLocked}
+                    draggable={canMove}
                     onClick={(e) => {
                       e.cancelBubble = true;
-                      if (isLocked || tool !== "select") return;
+                      if (!canMove) return;
                       selectIds([el.id], e.evt.shiftKey);
                     }}
                     onDragStart={() => {
@@ -350,17 +393,20 @@ export function StageCanvas() {
               }
               return null;
             })}
-            {visible.filter(isSymbol).map((el) => (
-              <Text
-                key={`${el.id}-label`}
-                x={el.x}
-                y={el.y + SYMBOL_SIZE * el.scale + 2}
-                text={el.label}
-                fontSize={12}
-                fill="#111"
-                listening={false}
-              />
-            ))}
+            {visible.filter(isSymbol).map((el) => {
+              const labelPos = symbolLabelPosition(el);
+              return (
+                <Text
+                  key={`${el.id}-label`}
+                  x={labelPos.x}
+                  y={labelPos.y}
+                  text={el.label}
+                  fontSize={12}
+                  fill="#111"
+                  listening={false}
+                />
+              );
+            })}
             {cableDraft.length > 0 && (
               <Line
                 points={polylineToFlat(cableDraft)}
@@ -369,12 +415,19 @@ export function StageCanvas() {
                 dash={cableStyle === "dashed" ? [12, 8] : undefined}
                 lineCap="round"
                 lineJoin="round"
+                listening={false}
               />
             )}
             {marquee && (
               <Rect x={marquee.x} y={marquee.y} width={marquee.width} height={marquee.height} stroke="#3b82f6" dash={[4, 4]} fill="#3b82f622" />
             )}
-            <Transformer ref={trRef} rotateEnabled boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)} />
+            <Transformer
+              ref={trRef}
+              rotateEnabled
+              rotationSnaps={[0, 90, 180, 270]}
+              rotationSnapTolerance={46}
+              boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
+            />
           </Layer>
         </Stage>
       </div>

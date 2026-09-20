@@ -13,7 +13,7 @@ import {
   saveProject,
 } from "../services/documentActions";
 import { isTauri } from "../services/desktop";
-import { confirmDiscard, fitView, getEditorState, newProject, setRestoreAvailable, useEditor } from "../state/editorStore";
+import { fitView, getEditorState, newProject, setRestoreAvailable, useEditor } from "../state/editorStore";
 import { RightPanel } from "../ui/RightPanel";
 import { StatusBar } from "../ui/StatusBar";
 import { SymbolPalette } from "../ui/SymbolPalette";
@@ -33,8 +33,8 @@ export function App() {
     void checkAutosave();
     const timer = window.setInterval(() => void persistAutosave(), 20000);
     const onLeave = (e: BeforeUnloadEvent) => {
-      if (!getEditorState().dirty) return;
       void persistAutosave();
+      if (isTauri() || !getEditorState().dirty) return;
       e.preventDefault();
     };
     const onKeys = (e: KeyboardEvent) => {
@@ -54,17 +54,39 @@ export function App() {
         newProject();
       }
     };
+    let cancelled = false;
     let unlistenClose: (() => void) | undefined;
     if (isTauri()) {
-      void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
-        unlistenClose = await getCurrentWindow().onCloseRequested((event) => {
-          if (!confirmDiscard()) event.preventDefault();
+      void (async () => {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        if (cancelled) return;
+        const win = getCurrentWindow();
+        unlistenClose = await win.onCloseRequested(async (event) => {
+          void persistAutosave();
+          if (!getEditorState().dirty) return;
+          event.preventDefault();
+          const { ask } = await import("@tauri-apps/plugin-dialog");
+          let discard = true;
+          try {
+            discard = await ask("Projekt ma niezapisane zmiany. Kontynuować i je odrzucić?", {
+              title: "ElectricPaint",
+              kind: "warning",
+            });
+          } catch {
+            discard = true;
+          }
+          if (discard) await win.destroy();
         });
-      });
+        if (cancelled) {
+          unlistenClose();
+          unlistenClose = undefined;
+        }
+      })();
     }
     window.addEventListener("beforeunload", onLeave);
     window.addEventListener("keydown", onKeys);
     return () => {
+      cancelled = true;
       window.clearInterval(timer);
       window.removeEventListener("beforeunload", onLeave);
       window.removeEventListener("keydown", onKeys);

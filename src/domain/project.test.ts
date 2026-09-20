@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addCable, addGroup, addLayer, addSymbol, assignSelectedToGroup, deleteElements, deleteLayer, duplicateElements, moveElements } from "./commands";
+import { addCable, addGroup, addLayer, addSymbol, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteLayer, duplicateElements, moveElements } from "./commands";
 import { migrateProject } from "./migrations";
 import { allocateLabel, symbolRole } from "./numbering";
 import { createEmptyProject } from "./project";
@@ -16,6 +16,7 @@ describe("numbering", () => {
     expect(second.label).toBe("L2");
     expect(symbolRole("luminaire")).toBe("luminaire");
     expect(symbolRole("socket-double")).toBe("socket");
+    expect(symbolRole("ground")).toBe("other");
   });
 });
 
@@ -37,6 +38,21 @@ describe("commands", () => {
     expect(project.groups[1].switchIds).toContain(switchId);
     expect(project.groups[0].luminaireIds).toEqual([lightA]);
     expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["L1", "O1", "O2"]);
+  });
+
+  it("po zatwierdzeniu grupy nadaje AL/AZ z numerem porządkowym", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 0, y: 0 });
+    project = addSymbol(project, { kind: "switch-stair", layerId, x: 10, y: 0 });
+    project = addSymbol(project, { kind: "wall-light", layerId, x: 20, y: 0 });
+    project = addSymbol(project, { kind: "luminaire", layerId, x: 30, y: 0 });
+    project = addSymbol(project, { kind: "wall-light", layerId, x: 40, y: 0 });
+    const ids = project.elements.map((el) => el.id);
+    project = addGroup(project, "A");
+    project = assignSelectedToGroup(project, project.groups[0].id, ids);
+    project = applyGroupLabels(project, project.groups[0].id);
+    expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["AL1", "AL2", "AZ1", "AZ2", "AZ3"]);
   });
 
   it("przesuwa, duplikuje i usuwa z czyszczeniem grup", () => {

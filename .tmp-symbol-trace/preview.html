@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Symbol PNG vs SVG</title>
+  <style>
+    body { font-family: sans-serif; background: #f4f4f4; margin: 16px; }
+    table { border-collapse: collapse; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+    img, svg { width: 128px; height: 128px; background: #fff; }
+    td { background: #fff; }
+  </style>
+</head>
+<body>
+  <table>
+    <tr><th>Symbol</th><th>PNG</th><th>SVG</th></tr>
+    <tr>
+      <td>łącznik pojedynczy</td>
+      <td><img src="switch-single.png" /></td>
+      <td><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 43 L48.5 10.4 L56 17"/><circle cx="18" cy="43" r="8" fill="#fff"/></svg></td>
+    </tr>
+    <tr>
+      <td>łącznik podwójny</td>
+      <td><img src="switch-double.png" /></td>
+      <td><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M18 43 L48.5 10.4 L56 17"/><path d="M42 18 L48 23.5"/><circle cx="18" cy="43" r="8" fill="#fff"/></svg></td>
+    </tr>
+    <tr>
+      <td>łącznik schodowy</td>
+      <td><img src="switch-stair.png" /></td>
+      <td><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M8 50 L13 54 L51 11 L56 15"/><circle cx="32" cy="32" r="5.5" fill="#fff"/></svg></td>
+    </tr>
+    <tr>
+      <td>łącznik krzyżowy</td>
+      <td><img src="switch-cross.png" /></td>
+      <td><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M8 50 L13 54 L51 11 L56 15"/><path d="M8 15 L13 11 L51 54 L56 50"/><circle cx="32" cy="32" r="5.5" fill="#fff"/></svg></td>
+    </tr>
+    <tr>
+      <td>gniazdo pojedyncze</td>
+      <td><img src="socket-single.png" /></td>
+      <td><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M32 10 V30"/><path d="M10 30 H54"/><path d="M16 52 A16 16 0 0 1 48 52"/></svg></td>
+    </tr>
+    <tr>
+      <td>gniazdo podwójne</td>
+      <td><img src="socket-double.png" /></td>
+      <td><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"><path d="M32 10 V30"/><path d="M8 30 H56"/><path d="M10 48 A10 10 0 0 1 30 48"/><path d="M34 48 A10 10 0 0 1 54 48"/></svg></td>
+    </tr>
+  </table>
+</body>
+</html>

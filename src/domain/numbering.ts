@@ -2,19 +2,28 @@ import type { Project, SymbolKind, SymbolRole } from "./types";
 
 const PREFIX: Record<SymbolKind, string> = {
   "switch-single": "L",
+  "switch-triple": "L",
   "switch-double": "L",
   "switch-stair": "L",
   "switch-cross": "L",
+  "switch-push": "L",
   "socket-single": "G",
   "socket-double": "G",
+  "socket-antenna": "G",
   luminaire: "O",
-  "wall-light": "K",
+  "wall-light": "Z",
+  ground: "U",
+  bell: "D",
+  meter: "C",
 };
+
+const LUMINAIRES: ReadonlySet<SymbolKind> = new Set(["luminaire", "wall-light"]);
 
 export function symbolRole(kind: SymbolKind): SymbolRole {
   if (kind.startsWith("switch")) return "switch";
   if (kind.startsWith("socket")) return "socket";
-  return "luminaire";
+  if (LUMINAIRES.has(kind)) return "luminaire";
+  return "other";
 }
 
 export function labelPrefix(kind: SymbolKind): string {

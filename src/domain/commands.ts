@@ -239,6 +239,25 @@ export function removeFromGroup(
   return updateGroup(project, groupId, { [field]: group[field].filter((id) => id !== elementId) });
 }
 
+export function applyGroupLabels(project: Project, groupId: string): Project {
+  const group = project.groups.find((item) => item.id === groupId);
+  if (!group) return project;
+  const designation = group.designation.trim();
+  if (!designation) return project;
+  const labels = new Map<string, string>();
+  group.switchIds.forEach((id, index) => labels.set(id, `${designation}L${index + 1}`));
+  group.luminaireIds.forEach((id, index) => labels.set(id, `${designation}Z${index + 1}`));
+  if (labels.size === 0) return project;
+  return {
+    ...project,
+    elements: project.elements.map((el) => {
+      const nextLabel = labels.get(el.id);
+      if (!nextLabel || !isSymbol(el)) return el;
+      return { ...el, label: nextLabel };
+    }),
+  };
+}
+
 export function snapshotProject(project: Project): Project {
   return cloneData(project);
 }

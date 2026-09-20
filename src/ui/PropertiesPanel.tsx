@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { symbolByKind } from "../catalog/symbols";
 import { isCable, isSymbol, isText, type OverlayElement } from "../domain/types";
 import { commitElementPatch, useEditor } from "../state/editorStore";
@@ -24,9 +25,7 @@ function SingleProps({ el }: { el: OverlayElement }) {
         <label className="field">Oznaczenie
           <input value={el.label} onChange={(e) => commitElementPatch(el.id, { label: e.target.value })} />
         </label>
-        <label className="field">Obrót
-          <input type="number" value={Math.round(el.rotation)} onChange={(e) => commitElementPatch(el.id, { rotation: Number(e.target.value) || 0 })} />
-        </label>
+        <RotationField id={el.id} rotation={el.rotation} />
         <label className="field">Skala
           <input type="number" step="0.1" value={el.scale} onChange={(e) => commitElementPatch(el.id, { scale: Number(e.target.value) || 1 })} />
         </label>
@@ -62,4 +61,30 @@ function SingleProps({ el }: { el: OverlayElement }) {
     );
   }
   return null;
+}
+
+function RotationField({ id, rotation }: { id: string; rotation: number }) {
+  const display = Math.round(rotation);
+  const [draft, setDraft] = useState(String(display));
+  useEffect(() => {
+    setDraft(String(display));
+  }, [id, display]);
+
+  return (
+    <label className="field">Obrót
+      <input
+        type="number"
+        value={draft}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setDraft(raw);
+          if (raw === "" || raw === "-" || raw === "+") return;
+          const next = Number(raw);
+          if (Number.isNaN(next)) return;
+          commitElementPatch(id, { rotation: next });
+        }}
+        onBlur={() => setDraft(String(display))}
+      />
+    </label>
+  );
 }

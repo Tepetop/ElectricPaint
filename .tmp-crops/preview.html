@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Symbol preview</title>
+  <style>
+    body { font-family: sans-serif; background: #f4f4f4; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 16px; }
+    .card { background: #fff; padding: 12px; text-align: center; border: 1px solid #ddd; }
+    .card svg { width: 96px; height: 96px; border: 1px solid #eee; }
+    .card span { display: block; margin-top: 8px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="grid" id="g"></div>
+  <script>
+    const svg = (body) =>
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="96" height="96" fill="none" stroke="#111" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+    const items = [
+      ["żarówka", svg('<circle cx="32" cy="32" r="16"/><path d="M21 21 L43 43"/><path d="M43 21 L21 43"/>')],
+      ["uziemienie", svg('<path d="M32 10 V34"/><path d="M18 34 H46" stroke-width="3.8"/><path d="M22 41 H42" stroke-width="3.8"/><path d="M26 48 H38" stroke-width="3.8"/>')],
+      ["dzwonek", svg('<path d="M16 40 A16 16 0 0 1 48 40"/><path d="M14 40 H50"/><path d="M22 40 V52"/><path d="M42 40 V52"/>')],
+      ["licznik", svg('<rect x="18" y="12" width="28" height="40"/><path d="M18 22 H46"/><path d="M22 28 L26 38 L30 28 L34 38 L38 28 L42 38" stroke-width="3.8"/>')],
+      ["wypust", svg('<path d="M8 32 H36"/><path d="M32 22 L46 42"/><path d="M46 22 L32 42"/>')],
+      ["jednobiegunowy", svg('<path d="M20 46 L48 18 L48 30"/><circle cx="20" cy="46" r="6.5" fill="#fff"/>')],
+      ["trójbiegunowy", svg('<path d="M20 46 L42 24"/><path d="M40.3 16.5 L49.5 25.7"/><path d="M37.4 19.4 L46.6 28.6"/><path d="M34.4 22.4 L43.6 31.6"/><circle cx="20" cy="46" r="6.5" fill="#fff"/>')],
+      ["szeregowy", svg('<path d="M32 44 L16 24 L16 34"/><path d="M32 44 L48 24 L48 34"/><circle cx="32" cy="44" r="6.5" fill="#fff"/>')],
+      ["schodowy", svg('<path d="M16 52 L16 42 L48 16 L48 26"/><circle cx="32" cy="32" r="6.5" fill="#fff"/>')],
+      ["krzyżowy", svg('<path d="M32 32 L18 18 L18 8"/><path d="M32 32 L46 18 L46 8"/><path d="M32 32 L18 46 L18 56"/><path d="M32 32 L46 46 L46 56"/><circle cx="32" cy="32" r="5.5" fill="#fff"/>')],
+      ["przycisk", svg('<circle cx="32" cy="32" r="13" stroke-width="8"/>')],
+      ["gniazdo poj.", svg('<path d="M32 10 V40"/><path d="M32 40 L20 54"/><path d="M32 40 L44 54"/>')],
+      ["gniazdo podw.", svg('<path d="M32 10 V36"/><path d="M14 36 H50" stroke-width="5"/><path d="M18 38 V50"/><path d="M27 38 V50"/><path d="M37 38 V50"/><path d="M46 38 V50"/>')],
+      ["gniazdo ant.", svg('<path d="M14 54 V30 H50 V54"/><path d="M22 54 V38 H42 V54"/><path d="M32 30 V14"/>')],
+    ];
+    document.getElementById("g").innerHTML = items.map(([n,s]) => `<div class="card">${s}<span>${n}</span></div>`).join("");
+  </script>
+</body>
+</html>

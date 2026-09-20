@@ -8,6 +8,11 @@ import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 
 export const SYMBOL_SIZE = 48;
 
+export function symbolLabelPosition(el: { x: number; y: number; scale: number }): { x: number; y: number } {
+  const size = SYMBOL_SIZE * el.scale;
+  return { x: el.x + size + 4, y: el.y + size / 2 - 6 };
+}
+
 function visibleElements(project: Project): OverlayElement[] {
   const hidden = new Set(project.layers.filter((l) => !l.visible).map((l) => l.id));
   return project.elements.filter((el) => !hidden.has(el.layerId));
@@ -88,10 +93,11 @@ export async function buildExportStage(
           }),
         );
       }
+      const labelPos = symbolLabelPosition(el);
       layer.add(
         new Konva.Text({
-          x: el.x,
-          y: el.y + SYMBOL_SIZE * el.scale + 2,
+          x: labelPos.x,
+          y: labelPos.y,
           text: el.label,
           fontSize: 12,
           fill: "#111",

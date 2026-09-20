@@ -13,15 +13,21 @@ export type Layer = {
 
 export type SymbolKind =
   | "switch-single"
+  | "switch-triple"
   | "switch-double"
   | "switch-stair"
   | "switch-cross"
+  | "switch-push"
   | "socket-single"
   | "socket-double"
+  | "socket-antenna"
   | "luminaire"
-  | "wall-light";
+  | "wall-light"
+  | "ground"
+  | "bell"
+  | "meter";
 
-export type SymbolRole = "switch" | "socket" | "luminaire";
+export type SymbolRole = "switch" | "socket" | "luminaire" | "other";
 
 export type SymbolElement = {
   type: "symbol";

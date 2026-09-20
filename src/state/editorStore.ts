@@ -5,6 +5,7 @@ import {
   addLayer,
   addSymbol,
   addText,
+  applyGroupLabels,
   assignSelectedToGroup,
   deleteElements,
   deleteGroup,
@@ -246,7 +247,45 @@ export function placeAt(point: Point) {
     return;
   }
   if (state.tool === "cable") {
-    setState({ cableDraft: [...state.cableDraft, snapped] });
+    startCableSegment(point);
+  }
+}
+
+export function startCableSegment(point: Point) {
+  if (state.tool !== "cable" || !activeEditable()) return;
+  const snapped = snapPoint(point, state.snap);
+  if (state.cableDraft.length === 0) {
+    setState({ cableDraft: [snapped] });
+    return;
+  }
+  setState({ cableDraft: [...state.cableDraft, snapped] });
+}
+
+export function previewCableSegment(point: Point) {
+  if (state.tool !== "cable" || !activeEditable()) return;
+  const snapped = snapPoint(point, state.snap);
+  const draft = state.cableDraft;
+  if (draft.length === 0) {
+    setState({ cableDraft: [snapped] });
+    return;
+  }
+  if (draft.length === 1) {
+    if (draft[0].x === snapped.x && draft[0].y === snapped.y) return;
+    setState({ cableDraft: [draft[0], snapped] });
+    return;
+  }
+  const last = draft[draft.length - 1];
+  if (last.x === snapped.x && last.y === snapped.y) return;
+  setState({ cableDraft: [...draft.slice(0, -1), snapped] });
+}
+
+export function commitCableSegment() {
+  const draft = state.cableDraft;
+  if (draft.length < 2) return;
+  const last = draft[draft.length - 1];
+  const prev = draft[draft.length - 2];
+  if (last.x === prev.x && last.y === prev.y) {
+    setState({ cableDraft: draft.slice(0, -1) });
   }
 }
 
@@ -262,8 +301,7 @@ export function finishCable() {
     width: state.cableWidth,
     style: state.cableStyle,
   });
-  const created = next.elements[next.elements.length - 1];
-  commit(next, { cableDraft: [], tool: "select", selectedIds: [created.id] });
+  commit(next, { cableDraft: [] });
 }
 
 export function cancelCable() {
@@ -347,6 +385,10 @@ export function commitRemoveFromGroup(
   field: "switchIds" | "luminaireIds",
 ) {
   commit(removeFromGroup(state.project, groupId, elementId, field));
+}
+
+export function commitApplyGroupLabels(groupId: string) {
+  commit(applyGroupLabels(state.project, groupId));
 }
 
 export function setBackground(background: Project["background"], dataUrl: string, canvas: { width: number; height: number }) {

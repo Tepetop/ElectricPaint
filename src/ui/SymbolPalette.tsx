@@ -22,7 +22,7 @@ export function SymbolPalette() {
     return SYMBOL_CATALOG.filter((item) => !q || item.name.toLowerCase().includes(q) || item.kind.includes(q));
   }, [query]);
 
-  const categories = ["switches", "sockets", "lighting"] as SymbolCategory[];
+  const categories = ["switches", "sockets", "lighting", "other"] as SymbolCategory[];
 
   return (
     <aside className="left-panel">
@@ -59,7 +59,7 @@ export function SymbolPalette() {
               <option value="dashed">Przerywana</option>
             </select>
           </label>
-          <p className="legend">Klikaj kolejne punkty. Enter lub podwójne kliknięcie kończy trasę.</p>
+          <p className="legend">Przytrzymaj LPM i ciągnij prosty odcinek. Puszczenie zatwierdza, kolejny odcinek dokłada się od końca. PPM kończy trasę.</p>
         </div>
       )}
       <h2 className="panel-title">Symbole</h2>
