@@ -5,6 +5,7 @@ const PREFIX: Record<SymbolKind, string> = {
   "switch-triple": "L",
   "switch-double": "L",
   "switch-stair": "L",
+  "switch-stair-double": "L",
   "switch-cross": "L",
   "switch-push": "L",
   "socket-single": "G",
@@ -15,6 +16,7 @@ const PREFIX: Record<SymbolKind, string> = {
   ground: "U",
   bell: "D",
   meter: "C",
+  "distribution-board": "Rg",
 };
 
 const LUMINAIRES: ReadonlySet<SymbolKind> = new Set(["luminaire", "wall-light"]);
@@ -30,9 +32,22 @@ export function labelPrefix(kind: SymbolKind): string {
   return PREFIX[kind];
 }
 
+function usedOrdinals(project: Project, prefix: string): Set<number> {
+  const used = new Set<number>();
+  for (const el of project.elements) {
+    if (el.type !== "symbol" || !el.label.startsWith(prefix)) continue;
+    const rest = el.label.slice(prefix.length);
+    if (!/^\d+$/.test(rest)) continue;
+    used.add(Number(rest));
+  }
+  return used;
+}
+
 export function allocateLabel(project: Project, kind: SymbolKind): { label: string; nextLabelSeq: Record<string, number> } {
   const prefix = labelPrefix(kind);
-  const next = (project.nextLabelSeq[prefix] ?? 1);
+  const used = usedOrdinals(project, prefix);
+  let next = 1;
+  while (used.has(next)) next += 1;
   return {
     label: `${prefix}${next}`,
     nextLabelSeq: { ...project.nextLabelSeq, [prefix]: next + 1 },

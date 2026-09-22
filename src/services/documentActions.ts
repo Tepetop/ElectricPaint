@@ -1,4 +1,5 @@
 import { inspectPdf, loadImageBackground, rasterizePdfPage } from "./background";
+import { loadDxfBackground } from "./dxfBackground";
 import { clearAutosave, readAutosave, writeAutosave } from "./autosave";
 import { makeDemoBackground } from "./demoProject";
 import { isTauri, saveBytesWithDialog } from "./desktop";
@@ -17,6 +18,22 @@ import { exportPdfBytes, exportPngBytes } from "../editor/exportDoc";
 import { addCable, addGroup, addSymbol, assignSelectedToGroup } from "../domain/commands";
 
 export async function importBackgroundFile(file: File, page?: number) {
+  if (file.name.toLowerCase().endsWith(".dxf")) {
+    const loaded = await loadDxfBackground(file);
+    setBackground(
+      {
+        kind: "dxf",
+        filename: file.name,
+        mimeType: "image/png",
+        width: loaded.width,
+        height: loaded.height,
+        asset: "assets/background.png",
+      },
+      loaded.dataUrl,
+      { width: loaded.width, height: loaded.height },
+    );
+    return { needsPage: false as const, pages: 1 };
+  }
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
     const { pages, pdf } = await inspectPdf(file);
     const chosen = page ?? (pages === 1 ? 1 : NaN);

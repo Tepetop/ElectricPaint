@@ -3,15 +3,8 @@ import { jsPDF } from "jspdf";
 import { symbolByKind } from "../catalog/symbols";
 import type { OverlayElement, Project } from "../domain/types";
 import { isCable, isSymbol, isText } from "../domain/types";
-import { polylineToFlat } from "../domain/geometry";
+import { SYMBOL_SIZE, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
-
-export const SYMBOL_SIZE = 48;
-
-export function symbolLabelPosition(el: { x: number; y: number; scale: number }): { x: number; y: number } {
-  const size = SYMBOL_SIZE * el.scale;
-  return { x: el.x + size + 4, y: el.y + size / 2 - 6 };
-}
 
 function visibleElements(project: Project): OverlayElement[] {
   const hidden = new Set(project.layers.filter((l) => !l.visible).map((l) => l.id));

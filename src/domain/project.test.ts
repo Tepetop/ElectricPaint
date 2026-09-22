@@ -9,14 +9,32 @@ import { isSymbol } from "./types";
 describe("numbering", () => {
   it("nadaje kolejne oznaczenia L/G/O", () => {
     let project = createEmptyProject();
-    const first = allocateLabel(project, "switch-single");
-    project = { ...project, nextLabelSeq: first.nextLabelSeq };
-    const second = allocateLabel(project, "switch-stair");
-    expect(first.label).toBe("L1");
-    expect(second.label).toBe("L2");
+    const layerId = project.layers[0].id;
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 0, y: 0 });
+    project = addSymbol(project, { kind: "switch-stair", layerId, x: 10, y: 0 });
+    expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["L1", "L2"]);
+    expect(allocateLabel(project, "distribution-board").label).toBe("Rg1");
     expect(symbolRole("luminaire")).toBe("luminaire");
     expect(symbolRole("socket-double")).toBe("socket");
     expect(symbolRole("ground")).toBe("other");
+    expect(symbolRole("distribution-board")).toBe("other");
+  });
+
+  it("po usunięciu bierze najmniejszy wolny numer z symboli na rzucie", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    for (let i = 0; i < 5; i++) {
+      project = addSymbol(project, { kind: "switch-single", layerId, x: i * 10, y: 0 });
+    }
+    project = deleteElements(project, project.elements.map((el) => el.id));
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 0, y: 0 });
+    expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["L1"]);
+
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 20, y: 0 });
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 40, y: 0 });
+    project = deleteElements(project, [project.elements[1].id]);
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 60, y: 0 });
+    expect(project.elements.filter(isSymbol).map((el) => el.label).sort()).toEqual(["L1", "L2", "L3"]);
   });
 });
 

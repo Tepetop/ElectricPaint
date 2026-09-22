@@ -27,6 +27,7 @@ export function App() {
   const backgroundDataUrl = useEditor((s) => s.backgroundDataUrl);
   const [pdfPrompt, setPdfPrompt] = useState<{ file: File; pages: number } | null>(null);
   const [page, setPage] = useState(1);
+  const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
     void preloadSymbolImages();
@@ -100,12 +101,17 @@ export function App() {
 
   async function onImportFile(file: File | undefined, chosenPage?: number) {
     if (!file) return;
-    const result = await importBackgroundFile(file, chosenPage);
-    if (result.needsPage) {
-      setPdfPrompt({ file, pages: result.pages });
-      setPage(1);
-    } else {
-      setPdfPrompt(null);
+    try {
+      const result = await importBackgroundFile(file, chosenPage);
+      setImportError(null);
+      if (result.needsPage) {
+        setPdfPrompt({ file, pages: result.pages });
+        setPage(1);
+      } else {
+        setPdfPrompt(null);
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "Nie można wczytać rzutu");
     }
   }
 
@@ -142,7 +148,7 @@ export function App() {
         className="hidden-file"
         data-testid="import-background"
         type="file"
-        accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+        accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf,.dxf"
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
@@ -154,6 +160,12 @@ export function App() {
           Znaleziono autosave.
           <button type="button" onClick={() => void restoreAutosave()}>Przywróć</button>
           <button type="button" onClick={() => setRestoreAvailable(false)}>Odrzuć</button>
+        </div>
+      )}
+      {importError && (
+        <div className="banner">
+          {importError}
+          <button type="button" onClick={() => setImportError(null)}>OK</button>
         </div>
       )}
       {pdfPrompt && (

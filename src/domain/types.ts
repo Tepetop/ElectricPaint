@@ -16,6 +16,7 @@ export type SymbolKind =
   | "switch-triple"
   | "switch-double"
   | "switch-stair"
+  | "switch-stair-double"
   | "switch-cross"
   | "switch-push"
   | "socket-single"
@@ -25,7 +26,8 @@ export type SymbolKind =
   | "wall-light"
   | "ground"
   | "bell"
-  | "meter";
+  | "meter"
+  | "distribution-board";
 
 export type SymbolRole = "switch" | "socket" | "luminaire" | "other";
 
@@ -39,6 +41,7 @@ export type SymbolElement = {
   rotation: number;
   scale: number;
   label: string;
+  labelOffset?: Point;
 };
 
 export type CableStyle = "solid" | "dashed";
@@ -76,7 +79,7 @@ export type ControlGroup = {
 };
 
 export type Background = {
-  kind: "image" | "pdf";
+  kind: "image" | "pdf" | "dxf";
   filename: string;
   mimeType: string;
   width: number;

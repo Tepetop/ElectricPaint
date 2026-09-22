@@ -19,10 +19,10 @@ export const SYMBOL_CATALOG: SymbolDefinition[] = [
   },
   {
     kind: "switch-double",
-    name: "Łącznik dwubiegunowy",
+    name: "Łącznik szeregowy",
     category: "switches",
     svg: svg(
-      '<path d="M18 43 L48.5 10.4 L56 17" stroke-linejoin="miter"/><path d="M46 13.2 L51 17.6"/><circle cx="18" cy="43" r="8" fill="#fff"/>',
+      '<path d="M18 43 L48.5 10.4 L56 17" stroke-linejoin="miter"/><path d="M39 20.5 L46.5 27.1"/><circle cx="18" cy="43" r="8" fill="#fff"/>',
     ),
   },
   {
@@ -30,6 +30,14 @@ export const SYMBOL_CATALOG: SymbolDefinition[] = [
     name: "Łącznik schodowy",
     category: "switches",
     svg: svg('<path d="M8 50 L13 54 L51 11 L56 15" stroke-linejoin="miter"/><circle cx="32" cy="32" r="6.5" fill="#fff"/>'),
+  },
+  {
+    kind: "switch-stair-double",
+    name: "Łącznik schodowy podwójny",
+    category: "switches",
+    svg: svg(
+      '<path d="M8 50 L13 54 L51 11 L56 15" stroke-linejoin="miter"/><path d="M19 47.2 L14 43.2"/><path d="M45.1 17.5 L50.1 21.5"/><circle cx="32" cy="32" r="6.5" fill="#fff"/>',
+    ),
   },
   {
     kind: "switch-cross",
@@ -98,6 +106,12 @@ export const SYMBOL_CATALOG: SymbolDefinition[] = [
     svg: svg(
       '<rect x="18" y="12" width="28" height="40"/><path d="M18 22 H46"/><path d="M22 28 L26 38 L30 28 L34 38 L38 28 L42 38" stroke-width="3.8"/>',
     ),
+  },
+  {
+    kind: "distribution-board",
+    name: "Rozdzielnica",
+    category: "other",
+    svg: svg('<rect x="6" y="24" width="52" height="16"/>'),
   },
 ];
 

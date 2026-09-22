@@ -31,6 +31,18 @@ describe("PropertiesPanel rotation", () => {
     expect(input).toHaveValue(-90);
   });
 
+  it("zapisuje przesunięcie opisu", async () => {
+    const user = userEvent.setup();
+    placedSymbol();
+    render(<PropertiesPanel />);
+    await user.clear(screen.getByRole("spinbutton", { name: "Przesunięcie opisu X" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Przesunięcie opisu X" }), "24");
+    await user.clear(screen.getByRole("spinbutton", { name: "Przesunięcie opisu Y" }));
+    await user.type(screen.getByRole("spinbutton", { name: "Przesunięcie opisu Y" }), "-8");
+    const el = getEditorState().project.elements[0];
+    expect(isSymbol(el) && el.labelOffset).toEqual({ x: 24, y: -8 });
+  });
+
   it("zostawia dokładny kąt z pola, bez skoku co 90", async () => {
     const user = userEvent.setup();
     placedSymbol();

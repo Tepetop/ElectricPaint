@@ -29,6 +29,16 @@ sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
 Szczegóły: [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
 
+## Zatrzymanie
+
+**Ctrl+C** działa tylko w terminalu, w którym program nadal pisze logi (nie ma jeszcze promptu `$`).
+
+Jeśli po **Ctrl+C** pojawia się samo `^C`, ten terminal już nic nie uruchamia. Zostawiony w tle Vite (błąd `Port 1420 is already in use`) zatrzymasz z innego terminala:
+
+```bash
+fuser -k 1420/tcp
+```
+
 ## Testy
 
 ```bash

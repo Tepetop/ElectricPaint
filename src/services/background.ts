@@ -9,7 +9,7 @@ export type LoadedBackground = {
   mimeType: string;
   width: number;
   height: number;
-  kind: "image" | "pdf";
+  kind: "image" | "pdf" | "dxf";
   page?: number;
 };
 

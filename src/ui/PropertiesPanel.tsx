@@ -29,6 +29,7 @@ function SingleProps({ el }: { el: OverlayElement }) {
         <label className="field">Skala
           <input type="number" step="0.1" value={el.scale} onChange={(e) => commitElementPatch(el.id, { scale: Number(e.target.value) || 1 })} />
         </label>
+        <LabelOffsetFields id={el.id} offset={el.labelOffset} />
       </div>
     );
   }
@@ -61,6 +62,42 @@ function SingleProps({ el }: { el: OverlayElement }) {
     );
   }
   return null;
+}
+
+function LabelOffsetFields({ id, offset }: { id: string; offset?: { x: number; y: number } }) {
+  const x = offset?.x ?? 0;
+  const y = offset?.y ?? 0;
+  return (
+    <>
+      <OffsetAxis id={id} axis="x" value={x} other={y} />
+      <OffsetAxis id={id} axis="y" value={y} other={x} />
+    </>
+  );
+}
+
+function OffsetAxis({ id, axis, value, other }: { id: string; axis: "x" | "y"; value: number; other: number }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => {
+    setDraft(String(value));
+  }, [id, value]);
+  const label = axis === "x" ? "Przesunięcie opisu X" : "Przesunięcie opisu Y";
+  return (
+    <label className="field">{label}
+      <input
+        type="number"
+        value={draft}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setDraft(raw);
+          if (raw === "" || raw === "-" || raw === "+") return;
+          const next = Number(raw);
+          if (Number.isNaN(next)) return;
+          commitElementPatch(id, { labelOffset: axis === "x" ? { x: next, y: other } : { x: other, y: next } });
+        }}
+        onBlur={() => setDraft(String(value))}
+      />
+    </label>
+  );
 }
 
 function RotationField({ id, rotation }: { id: string; rotation: number }) {

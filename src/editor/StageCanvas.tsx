@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
-import { polylineToFlat, snapPoint } from "../domain/geometry";
+import { SYMBOL_SIZE, labelOffsetFromWorld, polylineToFlat, snapPoint, symbolLabelPosition } from "../domain/geometry";
 import { GRID_SIZE, isCable, isSymbol, isText, type OverlayElement, type Point } from "../domain/types";
 import {
   canvasPointFromScreen,
@@ -20,7 +20,6 @@ import {
   setZoom,
   useEditor,
 } from "../state/editorStore";
-import { SYMBOL_SIZE, symbolLabelPosition } from "./exportDoc";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -395,6 +394,7 @@ export function StageCanvas() {
             })}
             {visible.filter(isSymbol).map((el) => {
               const labelPos = symbolLabelPosition(el);
+              const canMoveLabel = !locked.has(el.layerId) && (tool === "select" || tool === "symbol");
               return (
                 <Text
                   key={`${el.id}-label`}
@@ -403,7 +403,20 @@ export function StageCanvas() {
                   text={el.label}
                   fontSize={12}
                   fill="#111"
-                  listening={false}
+                  draggable={canMoveLabel}
+                  listening={canMoveLabel}
+                  onClick={(e) => {
+                    e.cancelBubble = true;
+                    if (!canMoveLabel) return;
+                    selectIds([el.id], e.evt.shiftKey);
+                  }}
+                  onDragEnd={(e) => {
+                    const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
+                    const offset = labelOffsetFromWorld(el, pos);
+                    commitElementPatch(el.id, {
+                      labelOffset: { x: Math.round(offset.x), y: Math.round(offset.y) },
+                    });
+                  }}
                 />
               );
             })}
