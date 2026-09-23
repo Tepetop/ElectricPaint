@@ -20,6 +20,20 @@ import { SymbolPalette } from "../ui/SymbolPalette";
 import { Toolbar } from "../ui/Toolbar";
 import "./styles.css";
 
+function isFloorPlanFile(file: File) {
+  const name = file.name.toLowerCase();
+  return (
+    file.type === "application/pdf" ||
+    file.type.startsWith("image/") ||
+    name.endsWith(".pdf") ||
+    name.endsWith(".dxf") ||
+    name.endsWith(".png") ||
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".webp")
+  );
+}
+
 export function App() {
   const openRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
@@ -136,11 +150,18 @@ export function App() {
         className="hidden-file"
         data-testid="open-project"
         type="file"
-        accept=".epaint,application/zip"
+        accept=".epaint,application/zip,application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp,.dxf"
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          if (file) void openProjectFile(file);
+          if (!file) return;
+          if (isFloorPlanFile(file)) {
+            void onImportFile(file);
+            return;
+          }
+          void openProjectFile(file).catch((err) => {
+            setImportError(err instanceof Error ? err.message : "Nie można otworzyć projektu");
+          });
         }}
       />
       <input
