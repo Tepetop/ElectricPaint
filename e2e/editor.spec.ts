@@ -15,7 +15,7 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await expect(page.getByText("Oznaczenie").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Nowa grupa" }).click();
-  await page.getByRole("button", { name: "Dodaj zaznaczone" }).last().click();
+  await page.getByRole("button", { name: "Dodaj zaznaczone" }).first().click();
   await expect(page.getByText(/Łączniki:.*L2/)).toBeVisible();
 
   await page.getByRole("button", { name: "Przewód" }).click();

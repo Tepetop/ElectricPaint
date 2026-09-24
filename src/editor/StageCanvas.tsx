@@ -1,11 +1,12 @@
 import Konva from "konva";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
-import { SYMBOL_SIZE, labelOffsetFromWorld, polylineToFlat, snapPoint, symbolLabelPosition } from "../domain/geometry";
+import { SYMBOL_SIZE, formatScaleLength, labelOffsetFromWorld, polylineToFlat, snapPoint, symbolLabelPosition } from "../domain/geometry";
 import { GRID_SIZE, isCable, isSymbol, isText, type OverlayElement, type Point } from "../domain/types";
 import {
   canvasPointFromScreen,
   clearSelection,
+  clickScalePoint,
   commitCablePoints,
   commitElementPatch,
   commitMove,
@@ -13,6 +14,7 @@ import {
   finishCable,
   placeAt,
   previewCableSegment,
+  previewScalePoint,
   startCableSegment,
   selectIds,
   setPan,
@@ -69,6 +71,8 @@ export function StageCanvas() {
   const cableColor = useEditor((s) => s.cableColor);
   const cableWidth = useEditor((s) => s.cableWidth);
   const cableStyle = useEditor((s) => s.cableStyle);
+  const scaleDraft = useEditor((s) => s.scaleDraft);
+  const scaleReference = useEditor((s) => s.project.scaleReference);
   const layers = project.layers;
   const hidden = useMemo(() => new Set(layers.filter((l) => !l.visible).map((l) => l.id)), [layers]);
   const locked = useMemo(() => new Set(layers.filter((l) => l.locked).map((l) => l.id)), [layers]);
@@ -188,6 +192,10 @@ export function StageCanvas() {
       startCableSegment(toCanvas(evt));
       return;
     }
+    if (tool === "scale") {
+      clickScalePoint(toCanvas(evt));
+      return;
+    }
     const clickedStage = evt.target === evt.target.getStage() || evt.target.getClassName() === "Rect" && evt.target.name() === "bg";
     if (!clickedStage) return;
     if (tool === "select") {
@@ -208,6 +216,9 @@ export function StageCanvas() {
       }
       previewCableSegment(toCanvas(evt));
       return;
+    }
+    if (tool === "scale" && scaleDraft.length > 0) {
+      previewScalePoint(toCanvas(evt));
     }
     if (panning && lastPointer.current) {
       const dx = evt.evt.clientX - lastPointer.current.x;
@@ -431,6 +442,23 @@ export function StageCanvas() {
                 listening={false}
               />
             )}
+            {scaleReference && (
+              <ScaleLine
+                x1={scaleReference.x1}
+                y1={scaleReference.y1}
+                x2={scaleReference.x2}
+                y2={scaleReference.y2}
+                label={formatScaleLength(scaleReference.lengthM)}
+              />
+            )}
+            {scaleDraft.length > 0 && (
+              <ScaleLine
+                x1={scaleDraft[0].x}
+                y1={scaleDraft[0].y}
+                x2={(scaleDraft[1] ?? scaleDraft[0]).x}
+                y2={(scaleDraft[1] ?? scaleDraft[0]).y}
+              />
+            )}
             {marquee && (
               <Rect x={marquee.x} y={marquee.y} width={marquee.width} height={marquee.height} stroke="#3b82f6" dash={[4, 4]} fill="#3b82f622" />
             )}
@@ -451,6 +479,38 @@ export function StageCanvas() {
         </div>
       )}
     </div>
+  );
+}
+
+function ScaleLine({
+  x1,
+  y1,
+  x2,
+  y2,
+  label,
+}: {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  label?: string;
+}) {
+  return (
+    <>
+      <Line points={[x1, y1, x2, y2]} stroke="#c2410c" strokeWidth={2} dash={[8, 4]} listening={false} />
+      <Circle x={x1} y={y1} radius={4} fill="#c2410c" listening={false} />
+      <Circle x={x2} y={y2} radius={4} fill="#c2410c" listening={false} />
+      {label && (
+        <Text
+          x={(x1 + x2) / 2 + 6}
+          y={(y1 + y2) / 2 - 14}
+          text={label}
+          fill="#c2410c"
+          fontSize={13}
+          listening={false}
+        />
+      )}
+    </>
   );
 }
 

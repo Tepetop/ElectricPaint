@@ -18,6 +18,8 @@ export function createEmptyProject(name = "Nowy projekt"): Project {
     nextLabelSeq: {},
     nextGroupSeq: 1,
     nextCableSeq: 1,
+    defaultSymbolScale: 1,
+    scaleReference: null,
   };
 }
 

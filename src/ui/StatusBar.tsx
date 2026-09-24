@@ -12,6 +12,7 @@ export function StatusBar() {
     pan: "Przesuwanie widoku",
     symbol: "Wstawianie symbolu",
     cable: "Rysowanie przewodu",
+    scale: "Skala rzutu",
     text: "Tekst",
   };
   return (

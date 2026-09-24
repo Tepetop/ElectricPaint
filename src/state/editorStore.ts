@@ -6,6 +6,7 @@ import {
   addSymbol,
   addText,
   applyGroupLabels,
+  applySymbolScaleSetting,
   assignSelectedToGroup,
   deleteElements,
   deleteGroup,
@@ -15,6 +16,8 @@ import {
   removeFromGroup,
   reorderLayer,
   replaceElement,
+  setScaleLength,
+  setScaleReference,
   snapshotProject,
   updateGroup,
   updateLayer,
@@ -23,7 +26,7 @@ import { snapPoint } from "../domain/geometry";
 import { createEmptyProject, isLayerEditable, layerById } from "../domain/project";
 import type { OverlayElement, Point, Project, SymbolKind } from "../domain/types";
 
-export type Tool = "select" | "pan" | "symbol" | "cable" | "text";
+export type Tool = "select" | "pan" | "symbol" | "cable" | "text" | "scale";
 
 export type EditorState = {
   project: Project;
@@ -39,6 +42,7 @@ export type EditorState = {
   showGrid: boolean;
   snap: boolean;
   cableDraft: Point[];
+  scaleDraft: Point[];
   cableColor: string;
   cableWidth: number;
   cableStyle: "solid" | "dashed";
@@ -70,6 +74,7 @@ function emptyState(): EditorState {
     showGrid: true,
     snap: true,
     cableDraft: [],
+    scaleDraft: [],
     cableColor: "#1d4ed8",
     cableWidth: 3,
     cableStyle: "solid",
@@ -170,6 +175,7 @@ export function setTool(tool: Tool) {
     tool,
     pendingSymbolKind: tool === "symbol" ? state.pendingSymbolKind : null,
     cableDraft: tool === "cable" ? state.cableDraft : [],
+    scaleDraft: tool === "scale" ? state.scaleDraft : [],
   });
 }
 
@@ -249,6 +255,9 @@ export function placeAt(point: Point) {
   if (state.tool === "cable") {
     startCableSegment(point);
   }
+  if (state.tool === "scale") {
+    clickScalePoint(point);
+  }
 }
 
 export function startCableSegment(point: Point) {
@@ -306,6 +315,51 @@ export function finishCable() {
 
 export function cancelCable() {
   setState({ cableDraft: [] });
+}
+
+export function clickScalePoint(point: Point) {
+  if (state.tool !== "scale") return;
+  const snapped = snapPoint(point, state.snap);
+  if (state.scaleDraft.length === 0) {
+    setState({ scaleDraft: [snapped] });
+    return;
+  }
+  const start = state.scaleDraft[0];
+  const lengthM = state.project.scaleReference?.lengthM ?? 1;
+  commit(setScaleReference(state.project, {
+    x1: start.x,
+    y1: start.y,
+    x2: snapped.x,
+    y2: snapped.y,
+    lengthM,
+  }), { scaleDraft: [] });
+}
+
+export function previewScalePoint(point: Point) {
+  if (state.tool !== "scale" || state.scaleDraft.length === 0) return;
+  const snapped = snapPoint(point, state.snap);
+  const start = state.scaleDraft[0];
+  if (start.x === snapped.x && start.y === snapped.y) return;
+  const draft = state.scaleDraft;
+  if (draft.length === 1) {
+    setState({ scaleDraft: [start, snapped] });
+    return;
+  }
+  const last = draft[draft.length - 1];
+  if (last.x === snapped.x && last.y === snapped.y) return;
+  setState({ scaleDraft: [start, snapped] });
+}
+
+export function cancelScale() {
+  setState({ scaleDraft: [] });
+}
+
+export function commitScaleLength(lengthM: number) {
+  commit(setScaleLength(state.project, lengthM));
+}
+
+export function commitApplySymbolScale(scale: number) {
+  commit(applySymbolScaleSetting(state.project, scale, state.selectedIds));
 }
 
 export function commitElementPatch(id: string, patch: Partial<OverlayElement>) {

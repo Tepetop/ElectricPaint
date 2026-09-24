@@ -1,6 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CATEGORY_LABELS, SYMBOL_CATALOG, symbolDataUrl, type SymbolCategory } from "../catalog/symbols";
+import { metersToMm, mmToMeters } from "../domain/geometry";
+import { isSymbol } from "../domain/types";
 import {
+  commitApplySymbolScale,
+  commitScaleLength,
   setCableStyle,
   setPendingSymbol,
   setTool,
@@ -15,7 +19,17 @@ export function SymbolPalette() {
   const cableColor = useEditor((s) => s.cableColor);
   const cableWidth = useEditor((s) => s.cableWidth);
   const cableStyle = useEditor((s) => s.cableStyle);
+  const defaultSymbolScale = useEditor((s) => s.project.defaultSymbolScale);
+  const scaleReference = useEditor((s) => s.project.scaleReference);
+  const selectedIds = useEditor((s) => s.selectedIds);
+  const elements = useEditor((s) => s.project.elements);
   const [query, setQuery] = useState("");
+
+  const selected = selectedIds.length === 1
+    ? elements.find((el) => el.id === selectedIds[0])
+    : undefined;
+  const selectedSymbol = selected && isSymbol(selected) ? selected : undefined;
+  const scaleValue = selectedSymbol?.scale ?? defaultSymbolScale;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -31,8 +45,27 @@ export function SymbolPalette() {
         <button type="button" className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>Zaznacz</button>
         <button type="button" className={tool === "pan" ? "active" : ""} onClick={() => setTool("pan")}>Przesuwanie</button>
         <button type="button" className={tool === "cable" ? "active" : ""} onClick={() => setTool("cable")}>Przewód</button>
+        <button type="button" className={tool === "scale" ? "active" : ""} onClick={() => setTool("scale")}>Skala rzutu</button>
         <button type="button" className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}>Tekst</button>
       </div>
+      <div className="section">
+        <label className="field">Skaluj symbol
+          <input
+            type="number"
+            step="0.1"
+            min="0.1"
+            value={scaleValue}
+            onChange={(e) => commitApplySymbolScale(Number(e.target.value) || 1)}
+          />
+        </label>
+        <p className="legend">Nowe symbole dostają tę skalę. Zaznaczony symbol też zostanie przeskalowany.</p>
+      </div>
+      {tool === "scale" && (
+        <div className="section">
+          <p className="legend">Kliknij dwa punkty na rzucie (np. krawędzie okna), potem wpisz rzeczywistą długość w milimetrach.</p>
+        </div>
+      )}
+      {scaleReference && <ScaleLengthField lengthM={scaleReference.lengthM} />}
       {tool === "cable" && (
         <div className="section">
           <label className="field">Kolor
@@ -89,5 +122,35 @@ export function SymbolPalette() {
         );
       })}
     </aside>
+  );
+}
+
+function ScaleLengthField({ lengthM }: { lengthM: number }) {
+  const display = String(metersToMm(lengthM));
+  const [draft, setDraft] = useState(display);
+  useEffect(() => {
+    setDraft(display);
+  }, [display]);
+
+  return (
+    <div className="section">
+      <label className="field">Długość odcinka (mm)
+        <input
+          type="number"
+          step="1"
+          min="1"
+          value={draft}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setDraft(raw);
+            if (raw === "") return;
+            const next = Number(raw);
+            if (!Number.isFinite(next) || next <= 0) return;
+            commitScaleLength(mmToMeters(next));
+          }}
+          onBlur={() => setDraft(display)}
+        />
+      </label>
+    </div>
   );
 }

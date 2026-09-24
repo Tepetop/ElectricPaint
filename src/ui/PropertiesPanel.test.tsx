@@ -53,4 +53,13 @@ describe("PropertiesPanel rotation", () => {
     const el = getEditorState().project.elements[0];
     expect(isSymbol(el) && el.rotation).toBe(45);
   });
+
+  it("zapisuje opis symbolu", async () => {
+    const user = userEvent.setup();
+    placedSymbol();
+    render(<PropertiesPanel />);
+    await user.type(screen.getByRole("textbox", { name: "Opis" }), "przy łóżku");
+    const described = getEditorState().project.elements[0];
+    expect(isSymbol(described) && described.description).toBe("przy łóżku");
+  });
 });

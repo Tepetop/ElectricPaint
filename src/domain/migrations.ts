@@ -1,5 +1,5 @@
 import { createDefaultLayer } from "./project";
-import { SCHEMA_VERSION, type OverlayElement, type Project } from "./types";
+import { SCHEMA_VERSION, isSymbol, type ControlGroup, type OverlayElement, type Project } from "./types";
 
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== "object") {
@@ -16,9 +16,16 @@ export function migrateProject(raw: unknown): Project {
     layers = [createDefaultLayer()];
   }
   const fallbackLayerId = layers[0].id;
-  const elements = (Array.isArray(data.elements) ? data.elements : []).map((el) => ({
-    ...el,
-    layerId: (el as OverlayElement).layerId || fallbackLayerId,
+  const elements = (Array.isArray(data.elements) ? data.elements : []).map((el) => {
+    const withLayer = { ...el, layerId: (el as OverlayElement).layerId || fallbackLayerId };
+    if (isSymbol(withLayer as OverlayElement)) {
+      return { ...withLayer, description: (withLayer as { description?: string }).description ?? "" };
+    }
+    return withLayer;
+  });
+  const groups = (Array.isArray(data.groups) ? data.groups : []).map((group) => ({
+    ...group,
+    collapsed: Boolean((group as ControlGroup).collapsed),
   }));
 
   return {
@@ -28,9 +35,11 @@ export function migrateProject(raw: unknown): Project {
     background: data.background ?? null,
     layers,
     elements,
-    groups: Array.isArray(data.groups) ? data.groups : [],
+    groups,
     nextLabelSeq: data.nextLabelSeq ?? {},
     nextGroupSeq: data.nextGroupSeq ?? 1,
     nextCableSeq: data.nextCableSeq ?? 1,
+    defaultSymbolScale: data.defaultSymbolScale ?? 1,
+    scaleReference: data.scaleReference ?? null,
   };
 }

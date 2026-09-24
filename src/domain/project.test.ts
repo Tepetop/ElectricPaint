@@ -49,12 +49,15 @@ describe("commands", () => {
     const lightA = project.elements[1].id;
     const lightB = project.elements[2].id;
     project = addGroup(project);
+    const firstGroupId = project.groups[0].id;
     project = addGroup(project);
-    project = assignSelectedToGroup(project, project.groups[0].id, [switchId, lightA]);
-    project = assignSelectedToGroup(project, project.groups[1].id, [switchId, lightB]);
-    expect(project.groups[0].switchIds).toContain(switchId);
-    expect(project.groups[1].switchIds).toContain(switchId);
-    expect(project.groups[0].luminaireIds).toEqual([lightA]);
+    const secondGroupId = project.groups[0].id;
+    project = assignSelectedToGroup(project, firstGroupId, [switchId, lightA]);
+    project = assignSelectedToGroup(project, secondGroupId, [switchId, lightB]);
+    expect(project.groups.map((g) => g.id)).toEqual([secondGroupId, firstGroupId]);
+    expect(project.groups.find((g) => g.id === firstGroupId)?.switchIds).toContain(switchId);
+    expect(project.groups.find((g) => g.id === secondGroupId)?.switchIds).toContain(switchId);
+    expect(project.groups.find((g) => g.id === firstGroupId)?.luminaireIds).toEqual([lightA]);
     expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["L1", "O1", "O2"]);
   });
 
@@ -102,6 +105,25 @@ describe("commands", () => {
     expect(project.layers).toHaveLength(1);
     expect(project.elements[0].layerId).toBe(first);
   });
+
+  it("nowa grupa ląduje na górze listy", () => {
+    let project = createEmptyProject();
+    project = addGroup(project, "A");
+    project = addGroup(project, "B");
+    expect(project.groups.map((group) => group.designation)).toEqual(["B", "A"]);
+    expect(project.groups[0].collapsed).toBe(false);
+  });
+
+  it("nowy symbol bierze defaultSymbolScale, wcześniejsze zostają", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 0, y: 0 });
+    project = { ...project, defaultSymbolScale: 0.6 };
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 10, y: 0 });
+    const scales = project.elements.filter(isSymbol).map((el) => el.scale);
+    expect(scales).toEqual([1, 0.6]);
+    expect(project.elements.filter(isSymbol)[1].description).toBe("");
+  });
 });
 
 describe("migrations", () => {
@@ -113,6 +135,20 @@ describe("migrations", () => {
     expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
     expect(migrated.layers).toHaveLength(1);
     expect(migrated.elements[0].layerId).toBe(migrated.layers[0].id);
+    expect(migrated.defaultSymbolScale).toBe(1);
+    expect(migrated.scaleReference).toBeNull();
+  });
+
+  it("uzupełnia opis symbolu i collapsed grupy", () => {
+    const migrated = migrateProject({
+      schemaVersion: 1,
+      layers: [{ id: "l1", name: "W", visible: true, locked: false }],
+      elements: [{ type: "symbol", id: "s1", layerId: "l1", kind: "switch-single", x: 0, y: 0, rotation: 0, scale: 1, label: "L1" }],
+      groups: [{ id: "g1", designation: "S1", switchIds: ["s1"], luminaireIds: [] }],
+    });
+    const symbol = migrated.elements[0];
+    expect(isSymbol(symbol) && symbol.description).toBe("");
+    expect(migrated.groups[0].collapsed).toBe(false);
   });
 
   it("odrzuca nowszą wersję schematu", () => {

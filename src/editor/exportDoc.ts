@@ -1,9 +1,10 @@
 import Konva from "konva";
 import { jsPDF } from "jspdf";
 import { symbolByKind } from "../catalog/symbols";
-import type { OverlayElement, Project } from "../domain/types";
+import type { OverlayElement, Project, ScaleReference } from "../domain/types";
 import { isCable, isSymbol, isText } from "../domain/types";
-import { SYMBOL_SIZE, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
+import { SYMBOL_SIZE, formatScaleLength, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
+import { collectSymbolList } from "../domain/symbolList";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 
 function visibleElements(project: Project): OverlayElement[] {
@@ -112,6 +113,10 @@ export async function buildExportStage(
     }
   }
 
+  if (project.scaleReference) {
+    addScaleOverlay(layer, project.scaleReference);
+  }
+
   layer.draw();
   return stage;
 }
@@ -147,6 +152,7 @@ export async function exportPdfBytes(
   const orientation = w >= h ? "landscape" : "portrait";
   const pdf = new jsPDF({ orientation, unit: "px", format: [w, h], hotfixes: ["px_scaling"] });
   pdf.addImage(url, "PNG", 0, 0, w, h);
+  addSymbolListPages(pdf, project);
   const output = pdf.output("arraybuffer");
   return new Uint8Array(output);
 }
@@ -157,4 +163,69 @@ export function elementLabel(el: OverlayElement): string {
   }
   if (isCable(el)) return el.name;
   return el.text;
+}
+
+function addScaleOverlay(layer: Konva.Layer, ref: ScaleReference) {
+  layer.add(
+    new Konva.Line({
+      points: [ref.x1, ref.y1, ref.x2, ref.y2],
+      stroke: "#c2410c",
+      strokeWidth: 2,
+      dash: [8, 4],
+    }),
+  );
+  layer.add(new Konva.Circle({ x: ref.x1, y: ref.y1, radius: 4, fill: "#c2410c" }));
+  layer.add(new Konva.Circle({ x: ref.x2, y: ref.y2, radius: 4, fill: "#c2410c" }));
+  layer.add(
+    new Konva.Text({
+      x: (ref.x1 + ref.x2) / 2 + 6,
+      y: (ref.y1 + ref.y2) / 2 - 14,
+      text: formatScaleLength(ref.lengthM),
+      fontSize: 13,
+      fill: "#c2410c",
+    }),
+  );
+}
+
+function addSymbolListPages(pdf: jsPDF, project: Project) {
+  const rows = collectSymbolList(project);
+  pdf.addPage("a4", "portrait");
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 40;
+  const cols = { label: margin, type: margin + 90, groups: margin + 250, desc: margin + 340 };
+  const descWidth = Math.max(80, pageW - cols.desc - margin);
+
+  const drawHeader = (y: number) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("Lista symboli", margin, y);
+    pdf.setFontSize(10);
+    pdf.text("Oznaczenie", cols.label, y + 24);
+    pdf.text("Typ", cols.type, y + 24);
+    pdf.text("Grupy", cols.groups, y + 24);
+    pdf.text("Opis", cols.desc, y + 24);
+    pdf.setFont("helvetica", "normal");
+    return y + 38;
+  };
+
+  let y = drawHeader(margin);
+  if (rows.length === 0) {
+    pdf.text("Brak symboli na widocznych warstwach.", margin, y);
+    return;
+  }
+  for (const row of rows) {
+    const descLines = pdf.splitTextToSize(row.description || "-", descWidth);
+    const typeLines = pdf.splitTextToSize(row.typeName, cols.groups - cols.type - 8);
+    const lineH = Math.max(16, Math.max(descLines.length, typeLines.length) * 12);
+    if (y + lineH > pageH - margin) {
+      pdf.addPage("a4", "portrait");
+      y = drawHeader(margin);
+    }
+    pdf.text(row.label || "-", cols.label, y);
+    pdf.text(typeLines, cols.type, y);
+    pdf.text(row.groups || "-", cols.groups, y);
+    pdf.text(descLines, cols.desc, y);
+    y += lineH;
+  }
 }

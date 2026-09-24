@@ -29,39 +29,57 @@ export function GroupsPanel() {
         <p className="legend">Utwórz grupę, dodaj łączniki i oprawy, nadaj oznaczenie i zatwierdź, aby wpisać nazwy na schemacie.</p>
       )}
       {groups.map((group) => {
+        const collapsed = Boolean(group.collapsed);
         const canApply = group.designation.trim().length > 0 && (group.switchIds.length > 0 || group.luminaireIds.length > 0);
         return (
           <div className="group-item" key={group.id}>
-            <label className="field">Oznaczenie
-              <input value={group.designation} onChange={(e) => commitUpdateGroup(group.id, { designation: e.target.value })} />
-            </label>
-            <div className="members">
-              Łączniki: {group.switchIds.length === 0 && "brak"}
-              {group.switchIds.map((id) => (
-                <button key={id} type="button" onClick={() => selectIds([id])}>
-                  {labelOf(id)}
-                  <span onClick={(e) => { e.stopPropagation(); commitRemoveFromGroup(group.id, id, "switchIds"); }}> ×</span>
-                </button>
-              ))}
-            </div>
-            <div className="members">
-              Oprawy: {group.luminaireIds.length === 0 && "brak"}
-              {group.luminaireIds.map((id) => (
-                <button key={id} type="button" onClick={() => selectIds([id])}>
-                  {labelOf(id)}
-                  <span onClick={(e) => { e.stopPropagation(); commitRemoveFromGroup(group.id, id, "luminaireIds"); }}> ×</span>
-                </button>
-              ))}
-            </div>
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <button type="button" disabled={selectedIds.length === 0} onClick={() => commitAssignSelected(group.id)}>
-                Dodaj zaznaczone
+            <div className="row" style={{ marginBottom: collapsed ? 0 : 8 }}>
+              <button
+                type="button"
+                aria-label={collapsed ? "Rozwiń grupę" : "Zwiń grupę"}
+                onClick={() => commitUpdateGroup(group.id, { collapsed: !collapsed })}
+              >
+                {collapsed ? "▸" : "▾"}
               </button>
-              <button type="button" disabled={!canApply} onClick={() => commitApplyGroupLabels(group.id)}>
-                Zatwierdź
-              </button>
-              <button type="button" onClick={() => commitDeleteGroup(group.id)}>Usuń grupę</button>
+              <label className="field" style={{ flex: 1, marginBottom: 0 }}>Oznaczenie
+                <input value={group.designation} onChange={(e) => commitUpdateGroup(group.id, { designation: e.target.value })} />
+              </label>
             </div>
+            {collapsed ? (
+              <p className="legend" style={{ margin: "6px 0 0" }}>
+                Łączniki: {group.switchIds.length} · Oprawy: {group.luminaireIds.length}
+              </p>
+            ) : (
+              <>
+                <div className="members">
+                  Łączniki: {group.switchIds.length === 0 && "brak"}
+                  {group.switchIds.map((id) => (
+                    <button key={id} type="button" onClick={() => selectIds([id])}>
+                      {labelOf(id)}
+                      <span onClick={(e) => { e.stopPropagation(); commitRemoveFromGroup(group.id, id, "switchIds"); }}> ×</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="members">
+                  Oprawy: {group.luminaireIds.length === 0 && "brak"}
+                  {group.luminaireIds.map((id) => (
+                    <button key={id} type="button" onClick={() => selectIds([id])}>
+                      {labelOf(id)}
+                      <span onClick={(e) => { e.stopPropagation(); commitRemoveFromGroup(group.id, id, "luminaireIds"); }}> ×</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="row" style={{ flexWrap: "wrap" }}>
+                  <button type="button" disabled={selectedIds.length === 0} onClick={() => commitAssignSelected(group.id)}>
+                    Dodaj zaznaczone
+                  </button>
+                  <button type="button" disabled={!canApply} onClick={() => commitApplyGroupLabels(group.id)}>
+                    Zatwierdź
+                  </button>
+                  <button type="button" onClick={() => commitDeleteGroup(group.id)}>Usuń grupę</button>
+                </div>
+              </>
+            )}
           </div>
         );
       })}

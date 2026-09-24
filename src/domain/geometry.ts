@@ -1,4 +1,4 @@
-import { GRID_SIZE, type Point } from "./types";
+import { GRID_SIZE, type Point, type ScaleReference } from "./types";
 
 export const SYMBOL_SIZE = 48;
 const LABEL_GAP = 4;
@@ -60,6 +60,43 @@ export function clamp(value: number, min: number, max: number): number {
 
 export function polylineToFlat(points: Point[]): number[] {
   return points.flatMap((p) => [p.x, p.y]);
+}
+
+export function polylineLengthPx(points: Point[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+  }
+  return total;
+}
+
+export function metersPerPixel(ref: ScaleReference | null | undefined): number | null {
+  if (!ref || !(ref.lengthM > 0)) return null;
+  const px = Math.hypot(ref.x2 - ref.x1, ref.y2 - ref.y1);
+  if (px <= 0) return null;
+  return ref.lengthM / px;
+}
+
+export function lengthInMeters(points: Point[], ref: ScaleReference | null | undefined): number | null {
+  const mpp = metersPerPixel(ref);
+  if (mpp == null) return null;
+  return polylineLengthPx(points) * mpp;
+}
+
+export function formatMeters(meters: number): string {
+  return `${meters.toFixed(2)} m`;
+}
+
+export function metersToMm(meters: number): number {
+  return Math.round(meters * 1000 * 100) / 100;
+}
+
+export function mmToMeters(mm: number): number {
+  return mm / 1000;
+}
+
+export function formatScaleLength(lengthM: number): string {
+  return `${metersToMm(lengthM)} mm`;
 }
 
 export function boundsContain(

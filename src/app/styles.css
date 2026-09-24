@@ -15,7 +15,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button {
   background: var(--bg-3);
   color: var(--text);
@@ -27,7 +27,7 @@ button {
 button:hover { border-color: var(--accent); }
 button.active { background: #3a2f1c; border-color: var(--accent); color: var(--accent); }
 button:disabled { opacity: 0.45; cursor: default; }
-input, select {
+input, select, textarea {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--line);
@@ -121,6 +121,7 @@ input, select {
 
 .section { margin-bottom: 16px; }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; font-size: 13px; }
+.field textarea { resize: vertical; min-height: 56px; font: inherit; }
 .row { display: flex; gap: 6px; align-items: center; }
 .row input { flex: 1; }
 .layer-item, .group-item {

@@ -1,11 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import { getEditorState, resetEditorForTests } from "../state/editorStore";
+import { clickScalePoint, getEditorState, resetEditorForTests, setTool } from "../state/editorStore";
 import { SymbolPalette } from "./SymbolPalette";
 
 describe("SymbolPalette", () => {
-  afterEach(() => resetEditorForTests());
+  afterEach(() => {
+    cleanup();
+    resetEditorForTests();
+  });
 
   it("wyszukuje i wybiera symbol", async () => {
     const user = userEvent.setup();
@@ -20,5 +23,19 @@ describe("SymbolPalette", () => {
     await user.click(screen.getByRole("button", { name: "Łącznik schodowy" }));
     expect(getEditorState().pendingSymbolKind).toBe("switch-stair");
     expect(getEditorState().tool).toBe("symbol");
+  });
+
+  it("zapisuje długość odcinka skali w milimetrach", async () => {
+    const user = userEvent.setup();
+    setTool("scale");
+    clickScalePoint({ x: 0, y: 0 });
+    clickScalePoint({ x: 100, y: 0 });
+    render(<SymbolPalette />);
+    const input = screen.getByRole("spinbutton", { name: "Długość odcinka (mm)" });
+    expect(input).toHaveValue(1000);
+    await user.clear(input);
+    await user.type(input, "900");
+    expect(getEditorState().project.scaleReference?.lengthM).toBeCloseTo(0.9);
+    expect(input).toHaveValue(900);
   });
 });

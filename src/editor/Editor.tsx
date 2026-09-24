@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   cancelCable,
+  cancelScale,
   deleteSelected,
   duplicateSelected,
   finishCable,
@@ -60,6 +61,7 @@ export function Editor() {
       }
       if (e.key === "Escape") {
         cancelCable();
+        cancelScale();
         return;
       }
       if (!ctrl && e.key.toLowerCase() === "v") setTool("select");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SYMBOL_SIZE, labelOffsetFromWorld, symbolLabelPosition } from "./geometry";
+import { SYMBOL_SIZE, formatScaleLength, labelOffsetFromWorld, lengthInMeters, metersToMm, mmToMeters, symbolLabelPosition } from "./geometry";
 
 describe("symbolLabelPosition", () => {
   const base = { x: 100, y: 80, scale: 1 };
@@ -27,5 +27,33 @@ describe("symbolLabelPosition", () => {
     const back = labelOffsetFromWorld(el, world);
     expect(back.x).toBeCloseTo(18);
     expect(back.y).toBeCloseTo(-10);
+  });
+});
+
+describe("lengthInMeters", () => {
+  it("przelicza polilinię przez odcinek odniesienia", () => {
+    const ref = { x1: 0, y1: 0, x2: 100, y2: 0, lengthM: 2 };
+    const meters = lengthInMeters(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 50 },
+      ],
+      ref,
+    );
+    expect(meters).toBeCloseTo(3);
+  });
+
+  it("bez skali zwraca null", () => {
+    expect(lengthInMeters([{ x: 0, y: 0 }, { x: 10, y: 0 }], null)).toBeNull();
+  });
+});
+
+describe("skala w milimetrach", () => {
+  it("przelicza metry na milimetry i z powrotem", () => {
+    expect(metersToMm(0.9)).toBe(900);
+    expect(mmToMeters(900)).toBeCloseTo(0.9);
+    expect(formatScaleLength(0.9)).toBe("900 mm");
+    expect(formatScaleLength(1)).toBe("1000 mm");
   });
 });

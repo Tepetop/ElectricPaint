@@ -7,6 +7,7 @@ import type {
   ControlGroup,
   OverlayElement,
   Project,
+  ScaleReference,
   SymbolElement,
   SymbolKind,
   TextElement,
@@ -35,8 +36,9 @@ export function addSymbol(
     x: input.x,
     y: input.y,
     rotation: 0,
-    scale: 1,
+    scale: project.defaultSymbolScale || 1,
     label,
+    description: "",
   };
   return { ...project, nextLabelSeq, elements: [...project.elements, element] };
 }
@@ -196,8 +198,9 @@ export function addGroup(project: Project, designation?: string): Project {
     designation: allocated.designation,
     switchIds: [],
     luminaireIds: [],
+    collapsed: false,
   };
-  return { ...project, nextGroupSeq: allocated.nextGroupSeq, groups: [...project.groups, group] };
+  return { ...project, nextGroupSeq: allocated.nextGroupSeq, groups: [group, ...project.groups] };
 }
 
 export function updateGroup(project: Project, groupId: string, patch: Partial<Omit<ControlGroup, "id">>): Project {
@@ -237,6 +240,27 @@ export function removeFromGroup(
   const group = project.groups.find((item) => item.id === groupId);
   if (!group) return project;
   return updateGroup(project, groupId, { [field]: group[field].filter((id) => id !== elementId) });
+}
+
+export function applySymbolScaleSetting(project: Project, scale: number, selectedIds: string[]): Project {
+  const value = Number(scale) || 1;
+  let next: Project = { ...project, defaultSymbolScale: value };
+  const selected = next.elements.filter((el) => selectedIds.includes(el.id) && isSymbol(el));
+  if (selected.length === 1) {
+    next = replaceElement(next, selected[0].id, { scale: value });
+  }
+  return next;
+}
+
+export function setScaleReference(project: Project, scaleReference: ScaleReference): Project {
+  return { ...project, scaleReference };
+}
+
+export function setScaleLength(project: Project, lengthM: number): Project {
+  if (!project.scaleReference) return project;
+  const value = Number(lengthM);
+  if (!Number.isFinite(value) || value <= 0) return project;
+  return { ...project, scaleReference: { ...project.scaleReference, lengthM: value } };
 }
 
 export function applyGroupLabels(project: Project, groupId: string): Project {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { symbolByKind } from "../catalog/symbols";
-import { isCable, isSymbol, isText, type OverlayElement } from "../domain/types";
+import { formatMeters, lengthInMeters } from "../domain/geometry";
+import { isCable, isSymbol, isText, type OverlayElement, type ScaleReference } from "../domain/types";
 import { commitElementPatch, useEditor } from "../state/editorStore";
 
 export function PropertiesPanel() {
@@ -18,12 +19,16 @@ export function PropertiesPanel() {
 }
 
 function SingleProps({ el }: { el: OverlayElement }) {
+  const scaleReference = useEditor((s) => s.project.scaleReference);
   if (isSymbol(el)) {
     return (
       <div>
         <div className="field">Symbol: {symbolByKind(el.kind)?.name}</div>
         <label className="field">Oznaczenie
           <input value={el.label} onChange={(e) => commitElementPatch(el.id, { label: e.target.value })} />
+        </label>
+        <label className="field">Opis
+          <textarea rows={3} value={el.description ?? ""} onChange={(e) => commitElementPatch(el.id, { description: e.target.value })} />
         </label>
         <RotationField id={el.id} rotation={el.rotation} />
         <label className="field">Skala
@@ -51,6 +56,7 @@ function SingleProps({ el }: { el: OverlayElement }) {
             <option value="dashed">Przerywana</option>
           </select>
         </label>
+        <div className="field">Długość: {cableLengthLabel(el.points, scaleReference)}</div>
       </div>
     );
   }
@@ -62,6 +68,11 @@ function SingleProps({ el }: { el: OverlayElement }) {
     );
   }
   return null;
+}
+
+function cableLengthLabel(points: { x: number; y: number }[], scaleReference: ScaleReference | null) {
+  const meters = lengthInMeters(points, scaleReference);
+  return meters == null ? "brak skali" : formatMeters(meters);
 }
 
 function LabelOffsetFields({ id, offset }: { id: string; offset?: { x: number; y: number } }) {

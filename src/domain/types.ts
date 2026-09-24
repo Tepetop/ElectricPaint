@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const PROJECT_FILE_EXT = ".epaint";
 export const GRID_SIZE = 10;
 
@@ -41,6 +41,7 @@ export type SymbolElement = {
   rotation: number;
   scale: number;
   label: string;
+  description: string;
   labelOffset?: Point;
 };
 
@@ -76,6 +77,15 @@ export type ControlGroup = {
   designation: string;
   switchIds: string[];
   luminaireIds: string[];
+  collapsed: boolean;
+};
+
+export type ScaleReference = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  lengthM: number;
 };
 
 export type Background = {
@@ -99,6 +109,8 @@ export type Project = {
   nextLabelSeq: Record<string, number>;
   nextGroupSeq: number;
   nextCableSeq: number;
+  defaultSymbolScale: number;
+  scaleReference: ScaleReference | null;
 };
 
 export function isSymbol(el: OverlayElement): el is SymbolElement {
