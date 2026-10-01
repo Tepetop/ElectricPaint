@@ -1,0 +1,11 @@
+--- a/src/domain/geometry.ts
++++ b/src/domain/geometry.ts
+@@ -47,7 +47,7 @@ export function labelOffsetFromWorld(
+ 
+ export function snapValue(value: number, enabled: boolean, grid = GRID_SIZE): number {
+   if (!enabled) return value;
+-  return Math.round(value / grid) * grid;
++  return Math.floor(value / grid) * grid;
+ }
+ 
+ export function snapPoint(point: Point, enabled: boolean, grid = GRID_SIZE): Point {

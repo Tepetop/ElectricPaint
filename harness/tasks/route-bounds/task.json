@@ -1,0 +1,7 @@
+{
+  "id": "route-bounds",
+  "title": "Prostokąt opisany trasy",
+  "timeoutMin": 8,
+  "baseGrade": "fail",
+  "prompt": "Dodaj wyeksportowaną funkcję `routeBounds` w `src/domain/geometry.ts`.\n\nPrzyjmuje tablicę punktów `{ x, y }` i zwraca prostokąt opisany `{ x, y, width, height }` albo `null`.\n\n- pusta tablica albo jeden punkt daje `null`;\n- inaczej `x` i `y` to minimum współrzędnych, a `width` i `height` to różnica maksimum i minimum. Zero jest poprawną szerokością albo wysokością, gdy odcinek jest pionowy albo poziomy.\n\nNie zmieniaj istniejących funkcji."
+}

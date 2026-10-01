@@ -1,0 +1,7 @@
+{
+  "id": "bounds-touch",
+  "title": "Krawędź prostokąta należy do obszaru",
+  "timeoutMin": 8,
+  "baseGrade": "pass",
+  "prompt": "`boundsContain` w `src/domain/geometry.ts` źle ocenia prostokąt leżący na krawędzi.\n\nFunkcja mówi, czy prostokąt (x, y, w, h) mieści się w `box` (x, y, width, height).\n\nKrawędzie należą do obszaru. Punkt albo prostokąt, który dotyka lewej, prawej, górnej albo dolnej krawędzi pudełka, nadal jest w środku. Na zewnątrz jest dopiero to, co wychodzi za krawędź.\n\nPrzykład: pudełko { x: 10, y: 20, width: 100, height: 50 } zawiera punkt (110, 70) oraz prostokąt od (10, 20) o wymiarach 100 na 50. Nie zawiera punktu (111, 20) ani (10, 71).\n\nNie zmieniaj innych funkcji."
+}

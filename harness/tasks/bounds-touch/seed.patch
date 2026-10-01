@@ -1,0 +1,9 @@
+--- a/src/domain/geometry.ts
++++ b/src/domain/geometry.ts
+@@ -106,5 +106,5 @@ export function boundsContain(
+   w: number,
+   h: number,
+ ): boolean {
+-  return x >= box.x && y >= box.y && x + w <= box.x + box.width && y + h <= box.y + box.height;
++  return x >= box.x && y >= box.y && x + w < box.x + box.width && y + h < box.y + box.height;
+ }

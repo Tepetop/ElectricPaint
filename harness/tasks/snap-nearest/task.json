@@ -1,0 +1,7 @@
+{
+  "id": "snap-nearest",
+  "title": "Przyciąganie do najbliższej linii siatki",
+  "timeoutMin": 8,
+  "baseGrade": "pass",
+  "prompt": "Przyciąganie do siatki jest zepsute. `snapValue` i `snapPoint` w `src/domain/geometry.ts` mają działać tak:\n\n- gdy przyciąganie jest wyłączone, zwracają wartość bez zmian;\n- gdy jest włączone, zaokrąglają do najbliższej wielokrotności kroku siatki, tak jak `Math.round`. Wartość dokładnie w połowie (15 przy kroku 10) idzie w górę, do 20;\n- dla liczb ujemnych obowiązuje `Math.round` z JavaScriptu: połówka w stronę plus nieskończoności, więc -15 przy kroku 10 daje -10;\n- `snapPoint` stosuje tę samą regułę do `x` i `y`.\n\nNie zmieniaj innych funkcji."
+}
