@@ -1,6 +1,26 @@
 # Harness ElectricPaint
 
-Lokalna ocena agenta Cursora na trzech zadaniach z logiki rysunku. Agent nie widzi testów, które decydują o zaliczeniu.
+Ten katalog ma dwa tryby: wykonanie dowolnego zadania w ElectricPaint oraz lokalną ocenę agenta na przygotowanych zadaniach.
+
+## Dowolny prompt
+
+Wymagane: Node.js 22.13+, `npm install` w katalogu repozytorium i `npm install` w katalogu `harness`, a także klucz `CURSOR_API_KEY` z Codex Dashboard → Integrations.
+
+```bash
+cd harness
+export CURSOR_API_KEY=cursor_...
+npm run prompt -- --prompt "Dodaj skrót klawiaturowy do zapisu projektu"
+# lub dla dłuższego opisu:
+npm run prompt -- --prompt-file ../zadanie.md
+```
+
+Skrypt uruchamia agenta lokalnie w głównym katalogu repozytorium. Po jego pracy wykonuje `npm test` i `npm run build`. Gdy weryfikacja zawiedzie, przekazuje błędy agentowi i ponawia pracę najwyżej dwa razy. `--model` wybiera model (domyślnie `composer-2.5`), a `--timeout-min` ogranicza czas jednej próby (domyślnie 20 minut). Prompt, transkrypty, logi i raport trafiają do ignorowanego przez Git katalogu `harness/runs/prompt-<czas>/`.
+
+Agent zmienia pliki w bieżącym repozytorium. Przed uruchomieniem warto sprawdzić `git status`, a po zakończeniu przejrzeć `git diff`. Harness nie tworzy commita ani nie wysyła zmian na GitHub.
+
+## Ocena na zadaniach z ukrytymi testami
+
+Lokalna ocena agenta na trzech zadaniach z logiki rysunku. Agent nie widzi testów, które decydują o zaliczeniu.
 
 ## Co jest zaliczeniem
 
