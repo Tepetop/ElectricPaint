@@ -39,9 +39,10 @@ input, select, textarea {
   height: 100%;
   display: grid;
   grid-template-columns: 270px 1fr 320px;
-  grid-template-rows: 52px 1fr 28px;
+  grid-template-rows: 52px 40px minmax(0, 1fr) 28px;
   grid-template-areas:
     "toolbar toolbar toolbar"
+    "tabs tabs tabs"
     "left canvas right"
     "status status status";
 }
@@ -64,6 +65,22 @@ input, select, textarea {
 }
 .toolbar .group { display: flex; gap: 6px; align-items: center; }
 .toolbar .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+
+.tab-bar {
+  grid-area: tabs;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+.tab-item { display: flex; align-items: center; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 6px; }
+.tab-item.active { border-color: var(--accent); background: #3a2f1c; }
+.tab-item button { border: 0; background: transparent; white-space: nowrap; }
+.tab-item .tab-close { padding: 4px 8px; color: var(--muted); }
+.tab-add { flex: 0 0 auto; white-space: nowrap; }
 
 .left-panel, .right-panel {
   background: var(--bg-2);

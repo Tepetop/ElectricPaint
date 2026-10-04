@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addCable, addGroup, addLayer, addSymbol, addText, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteLayer, duplicateElements, moveElements, moveElementsToLayer, scaleAllSymbols } from "./commands";
+import { addCable, addGroup, addLayer, addSymbol, addText, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteGroup, deleteLayer, duplicateElements, moveElements, moveElementsToLayer, scaleAllSymbols } from "./commands";
 import { migrateProject } from "./migrations";
 import { allocateLabel, symbolRole } from "./numbering";
 import { createEmptyProject } from "./project";
@@ -112,6 +112,18 @@ describe("commands", () => {
     project = addGroup(project, "B");
     expect(project.groups.map((group) => group.designation)).toEqual(["B", "A"]);
     expect(project.groups[0].collapsed).toBe(false);
+  });
+
+  it("po usunięciu grup ponownie używa pierwszego wolnego numeru", () => {
+    let project = createEmptyProject();
+    project = addGroup(addGroup(addGroup(project)));
+    expect(project.groups.map((group) => group.designation)).toEqual(["S3", "S2", "S1"]);
+    project = deleteGroup(project, project.groups[1].id);
+    project = addGroup(project);
+    expect(project.groups[0].designation).toBe("S2");
+    project = { ...project, groups: [], nextGroupSeq: 99 };
+    project = addGroup(project);
+    expect(project.groups[0].designation).toBe("S1");
   });
 
   it("nowy symbol bierze defaultSymbolScale, wcześniejsze zostają", () => {

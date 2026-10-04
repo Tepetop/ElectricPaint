@@ -83,11 +83,16 @@ export function StageCanvas() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     if (!backgroundDataUrl) {
       setBgImage(null);
       return;
     }
-    void loadDataUrlImage(backgroundDataUrl).then(setBgImage);
+    setBgImage(null);
+    void loadDataUrlImage(backgroundDataUrl).then((image) => {
+      if (!cancelled) setBgImage(image);
+    });
+    return () => { cancelled = true; };
   }, [backgroundDataUrl]);
 
   useEffect(() => {

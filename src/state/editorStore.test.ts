@@ -15,6 +15,11 @@ import {
   duplicateSelected,
   finishCable,
   getEditorState,
+  getTabState,
+  closeTab,
+  fitView,
+  markSaved,
+  newProject,
   placeAt,
   previewCableSegment,
   redo,
@@ -23,6 +28,9 @@ import {
   setActiveLayer,
   setPendingSymbol,
   setSnap,
+  setPan,
+  setZoom,
+  switchTab,
   setTool,
   startCableSegment,
   undo,
@@ -76,6 +84,79 @@ describe("editor history", () => {
     ]);
     expect(getEditorState().cableDraft).toEqual([]);
     expect(getEditorState().tool).toBe("cable");
+  });
+});
+
+describe("tabs", () => {
+  afterEach(() => resetEditorForTests());
+
+  it("zachowuje osobne projekty, widoki, szkice i historie", () => {
+    const firstId = getEditorState().activeTabId;
+    setPendingSymbol("switch-single");
+    placeAt({ x: 20, y: 20 });
+    setZoom(2);
+    setPan({ x: 43, y: 59 });
+    setTool("scale");
+    clickScalePoint({ x: 1, y: 2 });
+    newProject();
+    const secondId = getEditorState().activeTabId;
+    expect(getEditorState().tabs).toHaveLength(2);
+    expect(getEditorState().project.elements).toHaveLength(0);
+    expect(getEditorState().undoDepth).toBe(0);
+    setPendingSymbol("socket-single");
+    placeAt({ x: 80, y: 80 });
+    switchTab(firstId);
+    expect(getEditorState().project.elements).toHaveLength(1);
+    expect(getEditorState().zoom).toBe(2);
+    expect(getEditorState().pan).toEqual({ x: 43, y: 59 });
+    expect(getEditorState().scaleDraft).toEqual([{ x: 1, y: 2 }]);
+    undo();
+    expect(getEditorState().project.elements).toHaveLength(0);
+    switchTab(secondId);
+    expect(getEditorState().project.elements).toHaveLength(1);
+    expect(getEditorState().undoDepth).toBe(1);
+  });
+
+  it("zapis ukończony po przełączeniu dotyczy właściwej zakładki i chroni nowsze zmiany", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 20, y: 20 });
+    const firstId = getEditorState().activeTabId;
+    const revision = getEditorState().editRevision;
+    newProject();
+    const secondId = getEditorState().activeTabId;
+    markSaved(firstId, "pierwszy.epaint", revision);
+    expect(getTabState(firstId)?.dirty).toBe(false);
+    expect(getTabState(firstId)?.filePath).toBe("pierwszy.epaint");
+    expect(getTabState(secondId)?.filePath).toBeNull();
+    switchTab(firstId);
+    placeAt({ x: 40, y: 20 });
+    markSaved(firstId, "pierwszy.epaint", revision);
+    expect(getEditorState().dirty).toBe(true);
+  });
+
+  it("dopasowuje do bieżącego rozmiaru płótna nawet przy nieaktualnym viewport", () => {
+    const host = document.createElement("div");
+    host.className = "canvas-wrap";
+    Object.defineProperties(host, {
+      clientWidth: { value: 1200 },
+      clientHeight: { value: 800 },
+    });
+    document.body.append(host);
+    try {
+      expect(fitView()).toBe(true);
+      expect(getEditorState().viewport).toEqual({ width: 1200, height: 800 });
+      expect(getEditorState().zoom).toBeCloseTo(0.72);
+    } finally {
+      host.remove();
+    }
+  });
+
+  it("zamknięcie ostatniej zakładki pozostawia pusty rzut", () => {
+    const id = getEditorState().activeTabId;
+    expect(closeTab(id)).toBe(true);
+    expect(getEditorState().tabs).toHaveLength(1);
+    expect(getEditorState().activeTabId).not.toBe(id);
+    expect(getEditorState().project.elements).toHaveLength(0);
   });
 });
 

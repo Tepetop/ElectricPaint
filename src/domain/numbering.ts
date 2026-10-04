@@ -55,7 +55,12 @@ export function allocateLabel(project: Project, kind: SymbolKind): { label: stri
 }
 
 export function allocateGroupDesignation(project: Project): { designation: string; nextGroupSeq: number } {
-  const next = project.nextGroupSeq || 1;
+  const used = new Set(project.groups.flatMap((group) => {
+    const match = /^S(\d+)$/i.exec(group.designation.trim());
+    return match ? [Number(match[1])] : [];
+  }));
+  let next = 1;
+  while (used.has(next)) next += 1;
   return { designation: `S${next}`, nextGroupSeq: next + 1 };
 }
 

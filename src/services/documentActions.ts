@@ -1,23 +1,24 @@
 import { inspectPdf, loadImageBackground, rasterizePdfPage } from "./background";
 import { loadDxfBackground } from "./dxfBackground";
-import { clearAutosave, readAutosave, writeAutosave } from "./autosave";
+import { clearAutosave, readAutosave, writeAutosave, type AutosaveBundle } from "./autosave";
 import { makeDemoBackground } from "./demoProject";
 import { isTauri, saveBytesWithDialog } from "./desktop";
 import { bytesToDataUrl, dataUrlToBytes, packProject, unpackProject } from "./projectFiles";
 import { migrateProject } from "../domain/migrations";
 import { createEmptyProject } from "../domain/project";
 import {
-  confirmDiscard,
   getEditorState,
+  getTabStates,
   loadEditorProject,
   markSaved,
+  restoreEditorTabs,
   setBackground,
   setRestoreAvailable,
 } from "../state/editorStore";
 import { exportPdfBytes, exportPngBytes } from "../editor/exportDoc";
 import { addCable, addGroup, addSymbol, assignSelectedToGroup } from "../domain/commands";
 
-export async function importBackgroundFile(file: File, page?: number) {
+export async function importBackgroundFile(file: File, page?: number, tabId = getEditorState().activeTabId) {
   if (file.name.toLowerCase().endsWith(".dxf")) {
     const loaded = await loadDxfBackground(file);
     setBackground(
@@ -31,6 +32,7 @@ export async function importBackgroundFile(file: File, page?: number) {
       },
       loaded.dataUrl,
       { width: loaded.width, height: loaded.height },
+      tabId,
     );
     return { needsPage: false as const, pages: 1 };
   }
@@ -53,6 +55,7 @@ export async function importBackgroundFile(file: File, page?: number) {
       },
       loaded.dataUrl,
       { width: loaded.width, height: loaded.height },
+      tabId,
     );
     return { needsPage: false as const, pages };
   }
@@ -68,33 +71,35 @@ export async function importBackgroundFile(file: File, page?: number) {
     },
     loaded.dataUrl,
     { width: loaded.width, height: loaded.height },
+    tabId,
   );
   return { needsPage: false as const, pages: 1 };
 }
 
 export async function saveProject(saveAs: boolean) {
-  const { project, backgroundDataUrl, filePath } = getEditorState();
+  const { project, backgroundDataUrl, filePath, activeTabId, editRevision } = getEditorState();
   const backgroundBytes = backgroundDataUrl ? (await dataUrlToBytes(backgroundDataUrl)).bytes : null;
   const packed = await packProject(project, backgroundBytes);
   const suggested = `${project.name || "projekt"}.epaint`;
   if (!saveAs && filePath && isTauri() && /[\\/]/.test(filePath)) {
     const { writeFile } = await import("@tauri-apps/plugin-fs");
     await writeFile(filePath, packed);
-    markSaved(filePath);
-    await clearAutosave();
+    markSaved(activeTabId, filePath, editRevision);
+    await persistAutosave();
     return;
   }
   const path = await saveBytesWithDialog(suggested, packed, [
     { name: "ElectricPaint", extensions: ["epaint"] },
   ]);
   if (path) {
-    markSaved(path);
-    await clearAutosave();
+    markSaved(activeTabId, path, editRevision);
+    await persistAutosave();
   }
 }
 
 export async function openProjectFile(file: File) {
-  if (!confirmDiscard()) return;
+  if (getTabStates().some((tab) => tab.filePath?.split(/[\\/]/).pop() === file.name)
+    && !window.confirm(`Plik „${file.name}” jest już otwarty. Otworzyć drugi raz? Zapis może nadpisać ten sam plik.`)) return;
   const bytes = new Uint8Array(await file.arrayBuffer());
   const packed = await unpackProject(bytes);
   const dataUrl =
@@ -102,7 +107,6 @@ export async function openProjectFile(file: File) {
       ? bytesToDataUrl(packed.backgroundBytes, packed.backgroundMime)
       : null;
   loadEditorProject(packed.project, dataUrl, file.name);
-  await clearAutosave();
 }
 
 export async function exportCurrentPng() {
@@ -118,7 +122,6 @@ export async function exportCurrentPdf() {
 }
 
 export function loadDemoProject() {
-  if (!confirmDiscard()) return;
   const dataUrl = makeDemoBackground();
   let project = createEmptyProject("Przykładowe mieszkanie");
   project = {
@@ -154,26 +157,56 @@ export function loadDemoProject() {
   loadEditorProject(project, dataUrl, null);
 }
 
-export async function persistAutosave() {
-  const { project, backgroundDataUrl, filePath, dirty } = getEditorState();
-  if (!dirty) return;
-  await writeAutosave({
-    projectJson: JSON.stringify(project),
-    backgroundDataUrl,
-    filePath,
-    savedAt: Date.now(),
+let autosaveQueue = Promise.resolve();
+
+export function persistAutosave(): Promise<void> {
+  const next = autosaveQueue.catch(() => {}).then(async () => {
+    const dirtyTabs = getTabStates().filter((tab) => tab.dirty);
+    if (dirtyTabs.length === 0) {
+      await clearAutosave();
+      return;
+    }
+    const bundle: AutosaveBundle = {
+      version: 2,
+      activeTabId: getEditorState().activeTabId,
+      tabs: dirtyTabs.map((tab) => ({
+        id: tab.activeTabId,
+        title: tab.tabTitle,
+        projectJson: JSON.stringify(tab.project),
+        backgroundDataUrl: tab.backgroundDataUrl,
+        filePath: tab.filePath,
+        zoom: tab.zoom,
+        pan: tab.pan,
+        savedAt: Date.now(),
+      })),
+    };
+    await writeAutosave(bundle);
   });
+  autosaveQueue = next.catch(() => {});
+  return next;
 }
 
 export async function restoreAutosave() {
   const payload = await readAutosave();
   if (!payload) return;
-  const project = migrateProject(JSON.parse(payload.projectJson));
-  loadEditorProject(project, payload.backgroundDataUrl, payload.filePath);
+  if ("tabs" in payload) {
+    restoreEditorTabs(payload.tabs.map((tab) => ({
+      id: tab.id,
+      project: migrateProject(JSON.parse(tab.projectJson)),
+      backgroundDataUrl: tab.backgroundDataUrl,
+      filePath: tab.filePath,
+      tabTitle: tab.title,
+      zoom: tab.zoom,
+      pan: tab.pan,
+    })), payload.activeTabId);
+  } else {
+    const project = migrateProject(JSON.parse(payload.projectJson));
+    restoreEditorTabs([{ project, backgroundDataUrl: payload.backgroundDataUrl, filePath: payload.filePath }]);
+  }
   setRestoreAvailable(false);
 }
 
 export async function checkAutosave() {
   const payload = await readAutosave();
-  setRestoreAvailable(Boolean(payload));
+  setRestoreAvailable(Boolean(payload && (!("tabs" in payload) || payload.tabs.length > 0)));
 }

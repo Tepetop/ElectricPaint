@@ -26,12 +26,20 @@ import {
   updateLayer,
 } from "../domain/commands";
 import { snapPoint } from "../domain/geometry";
+import { createId } from "../domain/ids";
 import { createEmptyProject, isLayerEditable, layerById } from "../domain/project";
 import type { OverlayElement, Point, Project, SymbolKind } from "../domain/types";
 
 export type Tool = "select" | "pan" | "symbol" | "cable" | "text" | "scale";
 
+export type TabSummary = { id: string; title: string; dirty: boolean; filePath: string | null };
+
 export type EditorState = {
+  activeTabId: string;
+  tabs: TabSummary[];
+  tabTitle: string;
+  editRevision: number;
+  needsInitialFit: boolean;
   project: Project;
   backgroundDataUrl: string | null;
   filePath: string | null;
@@ -57,14 +65,22 @@ export type EditorState = {
 };
 
 type HistoryState = { past: Project[]; future: Project[] };
+type StoredSession = { editor: EditorState; history: HistoryState };
 
 const HISTORY_LIMIT = 80;
 const listeners = new Set<() => void>();
 let history: HistoryState = { past: [], future: [] };
+let nextUntitledNumber = 1;
 
 function emptyState(): EditorState {
-  const project = createEmptyProject();
+  const tabTitle = `Nowy rzut ${nextUntitledNumber++}`;
+  const project = createEmptyProject(tabTitle);
   return {
+    activeTabId: createId(),
+    tabs: [],
+    tabTitle,
+    editRevision: 0,
+    needsInitialFit: false,
     project,
     backgroundDataUrl: null,
     filePath: null,
@@ -91,8 +107,19 @@ function emptyState(): EditorState {
 }
 
 let state: EditorState = emptyState();
+let tabOrder = [state.activeTabId];
+let sessions = new Map<string, StoredSession>([[state.activeTabId, { editor: state, history }]]);
+
+function tabSummaries(): TabSummary[] {
+  return tabOrder.flatMap((id) => {
+    const editor = id === state.activeTabId ? state : sessions.get(id)?.editor;
+    return editor ? [{ id, title: editor.tabTitle, dirty: editor.dirty, filePath: editor.filePath }] : [];
+  });
+}
 
 function emit() {
+  state = { ...state, tabs: tabSummaries() };
+  sessions.set(state.activeTabId, { editor: state, history });
   for (const listener of listeners) listener();
 }
 
@@ -112,10 +139,68 @@ function commit(next: Project, extra: Partial<EditorState> = {}) {
     ...extra,
     project: next,
     dirty: true,
+    editRevision: state.editRevision + 1,
     undoDepth: history.past.length,
     redoDepth: 0,
   };
   emit();
+}
+
+function appendTab(editor: EditorState) {
+  const viewport = state.viewport;
+  const restoreAvailable = state.restoreAvailable;
+  history = { past: [], future: [] };
+  tabOrder = [...tabOrder, editor.activeTabId];
+  state = { ...editor, viewport, restoreAvailable };
+  emit();
+}
+
+export function switchTab(id: string) {
+  if (id === state.activeTabId) return;
+  const target = sessions.get(id);
+  if (!target) return;
+  const viewport = state.viewport;
+  history = target.history;
+  state = { ...target.editor, activeTabId: id, viewport };
+  emit();
+}
+
+export function closeTab(id: string): boolean {
+  const target = getTabState(id);
+  if (!target) return false;
+  if (target.dirty && !window.confirm(`Rzut „${target.tabTitle}” ma niezapisane zmiany. Zamknąć zakładkę?`)) return false;
+  const index = tabOrder.indexOf(id);
+  tabOrder = tabOrder.filter((item) => item !== id);
+  sessions.delete(id);
+  if (tabOrder.length === 0) {
+    const fresh = emptyState();
+    tabOrder = [fresh.activeTabId];
+    history = { past: [], future: [] };
+    state = { ...fresh, viewport: state.viewport, restoreAvailable: state.restoreAvailable };
+  } else if (id === state.activeTabId) {
+    const nextId = tabOrder[Math.min(index, tabOrder.length - 1)];
+    const next = sessions.get(nextId)!;
+    history = next.history;
+    state = { ...next.editor, activeTabId: nextId, viewport: state.viewport };
+  }
+  emit();
+  return true;
+}
+
+export function getTabState(id: string): EditorState | null {
+  if (id === state.activeTabId) return state;
+  return sessions.get(id)?.editor ?? null;
+}
+
+export function getTabStates(): EditorState[] {
+  return tabOrder.flatMap((id) => {
+    const editor = getTabState(id);
+    return editor ? [editor] : [];
+  });
+}
+
+export function hasUnsavedTabs(): boolean {
+  return getTabStates().some((tab) => tab.dirty);
 }
 
 export function getEditorState(): EditorState {
@@ -136,15 +221,12 @@ export function useEditor<T>(selector: (s: EditorState) => T): T {
 }
 
 export function confirmDiscard(): boolean {
-  if (!state.dirty) return true;
-  return window.confirm("Projekt ma niezapisane zmiany. Kontynuować i je odrzucić?");
+  if (!hasUnsavedTabs()) return true;
+  return window.confirm("Otwarte rzuty mają niezapisane zmiany. Kontynuować?");
 }
 
 export function newProject() {
-  if (!confirmDiscard()) return;
-  history = { past: [], future: [] };
-  state = emptyState();
-  emit();
+  appendTab(emptyState());
 }
 
 export function loadEditorProject(
@@ -152,28 +234,98 @@ export function loadEditorProject(
   backgroundDataUrl: string | null,
   filePath: string | null,
 ) {
-  history = { past: [], future: [] };
-  state = {
-    ...emptyState(),
+  const fresh = emptyState();
+  appendTab({
+    ...fresh,
     project,
     backgroundDataUrl,
     filePath,
+    tabTitle: filePath?.split(/[\\/]/).pop() || project.name,
+    needsInitialFit: Boolean(backgroundDataUrl),
     dirty: false,
-    activeLayerId: project.layers[0]?.id ?? emptyState().activeLayerId,
+    activeLayerId: project.layers[0]?.id ?? fresh.activeLayerId,
+  });
+}
+
+export function markSaved(tabId: string, filePath: string | null, revision: number) {
+  const target = getTabState(tabId);
+  if (!target) return;
+  const path = filePath ?? target.filePath;
+  const next = {
+    ...target,
+    dirty: target.editRevision === revision ? false : target.dirty,
+    filePath: path,
+    tabTitle: path?.split(/[\\/]/).pop() || target.tabTitle,
   };
+  if (tabId === state.activeTabId) {
+    state = next;
+  } else {
+    const stored = sessions.get(tabId)!;
+    sessions.set(tabId, { ...stored, editor: next });
+  }
   emit();
 }
 
-export function markSaved(filePath: string | null) {
-  setState({ dirty: false, filePath: filePath ?? state.filePath });
+export function setRestoreAvailable(value: boolean) {
+  for (const [id, stored] of sessions) {
+    sessions.set(id, { ...stored, editor: { ...stored.editor, restoreAvailable: value } });
+  }
+  setState({ restoreAvailable: value });
 }
 
-export function setRestoreAvailable(value: boolean) {
-  setState({ restoreAvailable: value });
+export type RestoredEditorTab = {
+  id?: string;
+  project: Project;
+  backgroundDataUrl: string | null;
+  filePath: string | null;
+  tabTitle?: string;
+  zoom?: number;
+  pan?: Point;
+};
+
+export function restoreEditorTabs(restored: RestoredEditorTab[], activeId?: string) {
+  if (restored.length === 0) return;
+  const viewport = state.viewport;
+  const replaceBlank = tabOrder.length === 1 && !state.dirty && !state.filePath
+    && state.project.elements.length === 0 && !state.backgroundDataUrl;
+  if (replaceBlank) {
+    tabOrder = [];
+    sessions = new Map();
+  }
+  const added: string[] = [];
+  for (const item of restored) {
+    const fresh = emptyState();
+    const id = item.id && !sessions.has(item.id) ? item.id : fresh.activeTabId;
+    const editor: EditorState = {
+      ...fresh,
+      activeTabId: id,
+      project: item.project,
+      backgroundDataUrl: item.backgroundDataUrl,
+      filePath: item.filePath,
+      tabTitle: item.tabTitle || item.filePath?.split(/[\\/]/).pop() || item.project.name,
+      activeLayerId: item.project.layers[0]?.id ?? fresh.activeLayerId,
+      dirty: true,
+      editRevision: 1,
+      needsInitialFit: Boolean(item.backgroundDataUrl) && item.zoom == null,
+      zoom: item.zoom ?? fresh.zoom,
+      pan: item.pan ?? fresh.pan,
+      viewport,
+      restoreAvailable: false,
+    };
+    tabOrder.push(id);
+    sessions.set(id, { editor, history: { past: [], future: [] } });
+    added.push(id);
+  }
+  const selectedId = added.find((id) => id === activeId) ?? added[0];
+  const target = sessions.get(selectedId)!;
+  history = target.history;
+  state = target.editor;
+  emit();
 }
 
 export function setViewport(width: number, height: number) {
   setState({ viewport: { width, height } });
+  if (state.needsInitialFit) fitView();
 }
 
 export function setTool(tool: Tool) {
@@ -227,14 +379,17 @@ export function clearSelection() {
   setState({ selectedIds: [] });
 }
 
-export function fitView() {
-  const { width, height } = state.viewport;
+export function fitView(): boolean {
+  const host = typeof document === "undefined" ? null : document.querySelector<HTMLElement>(".canvas-wrap");
+  const width = host ? host.clientWidth : state.viewport.width;
+  const height = host ? host.clientHeight : state.viewport.height;
   const cw = state.project.canvas.width;
   const ch = state.project.canvas.height;
-  if (width < 10 || height < 10) return;
+  if (width < 10 || height < 10 || cw <= 0 || ch <= 0) return false;
   const zoom = Math.min(width / cw, height / ch) * 0.96;
   const pan = { x: (width - cw * zoom) / 2, y: (height - ch * zoom) / 2 };
-  setState({ zoom, pan });
+  setState({ zoom, pan, viewport: { width, height }, needsInitialFit: false });
+  return true;
 }
 
 export function canvasPointFromScreen(screen: Point): Point {
@@ -479,11 +634,32 @@ export function commitApplyGroupLabels(groupId: string) {
   commit(applyGroupLabels(state.project, groupId));
 }
 
-export function setBackground(background: Project["background"], dataUrl: string, canvas: { width: number; height: number }) {
-  commit(
-    { ...state.project, background, canvas },
-    { backgroundDataUrl: dataUrl },
-  );
+export function setBackground(background: Project["background"], dataUrl: string, canvas: { width: number; height: number }, tabId = state.activeTabId) {
+  const target = getTabState(tabId);
+  if (!target) return;
+  const nextProject = { ...target.project, background, canvas };
+  if (tabId === state.activeTabId) {
+    commit(nextProject, { backgroundDataUrl: dataUrl, needsInitialFit: true });
+    fitView();
+    return;
+  }
+  const stored = sessions.get(tabId)!;
+  const nextHistory: HistoryState = {
+    past: [...stored.history.past, snapshotProject(target.project)].slice(-HISTORY_LIMIT),
+    future: [],
+  };
+  const nextEditor: EditorState = {
+    ...target,
+    project: nextProject,
+    backgroundDataUrl: dataUrl,
+    needsInitialFit: true,
+    dirty: true,
+    editRevision: target.editRevision + 1,
+    undoDepth: nextHistory.past.length,
+    redoDepth: 0,
+  };
+  sessions.set(tabId, { editor: nextEditor, history: nextHistory });
+  emit();
 }
 
 export function undo() {
@@ -497,6 +673,7 @@ export function undo() {
     ...state,
     project: previous,
     dirty: true,
+    editRevision: state.editRevision + 1,
     activeLayerId,
     undoDepth: history.past.length,
     redoDepth: history.future.length,
@@ -515,6 +692,7 @@ export function redo() {
     ...state,
     project: next,
     dirty: true,
+    editRevision: state.editRevision + 1,
     activeLayerId,
     undoDepth: history.past.length,
     redoDepth: history.future.length,
@@ -532,5 +710,8 @@ export function canRedo(): boolean {
 
 export function resetEditorForTests() {
   history = { past: [], future: [] };
+  nextUntitledNumber = 1;
   state = emptyState();
+  tabOrder = [state.activeTabId];
+  sessions = new Map([[state.activeTabId, { editor: state, history }]]);
 }

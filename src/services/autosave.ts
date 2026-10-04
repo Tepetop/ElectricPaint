@@ -9,6 +9,19 @@ export type AutosavePayload = {
   savedAt: number;
 };
 
+export type AutosaveTab = AutosavePayload & {
+  id: string;
+  title: string;
+  zoom: number;
+  pan: { x: number; y: number };
+};
+
+export type AutosaveBundle = {
+  version: 2;
+  activeTabId: string;
+  tabs: AutosaveTab[];
+};
+
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
@@ -20,7 +33,7 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function writeAutosave(payload: AutosavePayload): Promise<void> {
+export async function writeAutosave(payload: AutosavePayload | AutosaveBundle): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
@@ -30,12 +43,12 @@ export async function writeAutosave(payload: AutosavePayload): Promise<void> {
   });
 }
 
-export async function readAutosave(): Promise<AutosavePayload | null> {
+export async function readAutosave(): Promise<AutosavePayload | AutosaveBundle | null> {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, "readonly");
     const request = tx.objectStore(STORE).get(KEY);
-    request.onsuccess = () => resolve((request.result as AutosavePayload) ?? null);
+    request.onsuccess = () => resolve((request.result as AutosavePayload | AutosaveBundle) ?? null);
     request.onerror = () => reject(request.error);
   });
 }

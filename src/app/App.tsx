@@ -13,7 +13,7 @@ import {
   saveProject,
 } from "../services/documentActions";
 import { isTauri } from "../services/desktop";
-import { fitView, getEditorState, newProject, setRestoreAvailable, useEditor } from "../state/editorStore";
+import { closeTab, fitView, getEditorState, hasUnsavedTabs, newProject, setRestoreAvailable, switchTab, useEditor } from "../state/editorStore";
 import { RightPanel } from "../ui/RightPanel";
 import { StatusBar } from "../ui/StatusBar";
 import { SymbolPalette } from "../ui/SymbolPalette";
@@ -38,8 +38,11 @@ export function App() {
   const openRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const restoreAvailable = useEditor((s) => s.restoreAvailable);
-  const backgroundDataUrl = useEditor((s) => s.backgroundDataUrl);
-  const [pdfPrompt, setPdfPrompt] = useState<{ file: File; pages: number } | null>(null);
+  const tabs = useEditor((s) => s.tabs);
+  const activeTabId = useEditor((s) => s.activeTabId);
+  const needsInitialFit = useEditor((s) => s.needsInitialFit);
+  const viewport = useEditor((s) => s.viewport);
+  const [pdfPrompt, setPdfPrompt] = useState<{ file: File; pages: number; tabId: string } | null>(null);
   const [page, setPage] = useState(1);
   const [importError, setImportError] = useState<string | null>(null);
 
@@ -49,7 +52,7 @@ export function App() {
     const timer = window.setInterval(() => void persistAutosave(), 20000);
     const onLeave = (e: BeforeUnloadEvent) => {
       void persistAutosave();
-      if (isTauri() || !getEditorState().dirty) return;
+      if (isTauri() || !hasUnsavedTabs()) return;
       e.preventDefault();
     };
     const onKeys = (e: KeyboardEvent) => {
@@ -77,13 +80,13 @@ export function App() {
         if (cancelled) return;
         const win = getCurrentWindow();
         unlistenClose = await win.onCloseRequested(async (event) => {
-          void persistAutosave();
-          if (!getEditorState().dirty) return;
+          await persistAutosave();
+          if (!hasUnsavedTabs()) return;
           event.preventDefault();
           const { ask } = await import("@tauri-apps/plugin-dialog");
           let discard = true;
           try {
-            discard = await ask("Projekt ma niezapisane zmiany. Kontynuować i je odrzucić?", {
+            discard = await ask("Otwarte rzuty mają niezapisane zmiany. Zamknąć aplikację?", {
               title: "ElectricPaint",
               kind: "warning",
             });
@@ -110,16 +113,16 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (backgroundDataUrl) fitView();
-  }, [backgroundDataUrl]);
+    if (needsInitialFit) fitView();
+  }, [activeTabId, needsInitialFit, viewport.width, viewport.height]);
 
-  async function onImportFile(file: File | undefined, chosenPage?: number) {
+  async function onImportFile(file: File | undefined, chosenPage?: number, tabId = getEditorState().activeTabId) {
     if (!file) return;
     try {
-      const result = await importBackgroundFile(file, chosenPage);
+      const result = await importBackgroundFile(file, chosenPage, tabId);
       setImportError(null);
       if (result.needsPage) {
-        setPdfPrompt({ file, pages: result.pages });
+        setPdfPrompt({ file, pages: result.pages, tabId });
         setPage(1);
       } else {
         setPdfPrompt(null);
@@ -141,6 +144,19 @@ export function App() {
         onExportPng={() => void exportCurrentPng()}
         onExportPdf={() => void exportCurrentPdf()}
       />
+      <div className="tab-bar" role="tablist" aria-label="Otwarte rzuty">
+        {tabs.map((tab) => (
+          <div className={`tab-item ${tab.id === activeTabId ? "active" : ""}`} key={tab.id}>
+            <button type="button" role="tab" aria-selected={tab.id === activeTabId} onClick={() => switchTab(tab.id)}>
+              {tab.title}{tab.dirty ? " •" : ""}
+            </button>
+            <button type="button" className="tab-close" aria-label={`Zamknij ${tab.title}`} onClick={() => {
+              if (closeTab(tab.id)) void persistAutosave();
+            }}>×</button>
+          </div>
+        ))}
+        <button type="button" className="tab-add" onClick={newProject}>+ Nowa zakładka</button>
+      </div>
       <SymbolPalette />
       <Editor />
       <RightPanel />
@@ -205,7 +221,7 @@ export function App() {
               />
             </label>
             <div className="row">
-              <button type="button" onClick={() => void onImportFile(pdfPrompt.file, page)}>Wczytaj</button>
+              <button type="button" onClick={() => void onImportFile(pdfPrompt.file, page, pdfPrompt.tabId)}>Wczytaj</button>
               <button type="button" onClick={() => setPdfPrompt(null)}>Anuluj</button>
             </div>
           </div>
