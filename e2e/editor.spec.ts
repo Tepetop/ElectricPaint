@@ -5,6 +5,17 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "ElectricPaint" })).toBeVisible();
   await page.getByRole("button", { name: "Przykład" }).click();
   await expect(page.getByText("Warstwa:")).toBeVisible();
+  expect(await page.evaluate(() => {
+    const project = window.__ep!.getEditorState().project;
+    const names = new Map(project.layers.map((layer) => [layer.id, layer.name]));
+    return {
+      layers: project.layers.map((layer) => layer.name),
+      assignments: project.elements.map((element) => names.get(element.layerId)),
+    };
+  })).toEqual({
+    layers: ["Gniazda", "Oświetlenie", "Przewody", "Inne"],
+    assignments: ["Oświetlenie", "Oświetlenie", "Gniazda", "Przewody"],
+  });
 
   await page.getByRole("button", { name: "Łącznik schodowy", exact: true }).click();
   await page.evaluate(() => {
@@ -28,7 +39,7 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await expect(page.getByText("Legenda tras")).toBeVisible();
 
   await page.getByRole("button", { name: "Dodaj", exact: true }).click();
-  await expect(page.locator('input[value="Warstwa 2"]')).toBeVisible();
+  await expect(page.locator('input[value="Warstwa 5"]')).toBeVisible();
 
   const downloadPng = page.waitForEvent("download");
   await page.getByRole("button", { name: "Eksport PNG" }).click();

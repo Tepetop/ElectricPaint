@@ -27,7 +27,7 @@ import {
 } from "../domain/commands";
 import { snapPoint } from "../domain/geometry";
 import { createId } from "../domain/ids";
-import { createEmptyProject, isLayerEditable, layerById } from "../domain/project";
+import { createEmptyProject, defaultSymbolLayerId, isLayerEditable, layerById, layerIdByName } from "../domain/project";
 import type { OverlayElement, Point, Project, SymbolKind } from "../domain/types";
 
 export type Tool = "select" | "pan" | "symbol" | "cable" | "text" | "scale";
@@ -404,15 +404,17 @@ function activeEditable(): boolean {
 }
 
 export function placeAt(point: Point) {
-  if (!activeEditable()) return;
   const snapped = snapPoint(point, state.snap);
   if (state.tool === "symbol" && state.pendingSymbolKind) {
-    const next = addSymbol(state.project, { kind: state.pendingSymbolKind, layerId: state.activeLayerId, ...snapped });
+    const layerId = defaultSymbolLayerId(state.project, state.pendingSymbolKind, state.activeLayerId);
+    if (!isLayerEditable(state.project, layerId)) return;
+    const next = addSymbol(state.project, { kind: state.pendingSymbolKind, layerId, ...snapped });
     const created = next.elements[next.elements.length - 1];
     commit(next, { selectedIds: [created.id] });
     return;
   }
   if (state.tool === "text") {
+    if (!activeEditable()) return;
     const next = addText(state.project, { layerId: state.activeLayerId, ...snapped });
     const created = next.elements[next.elements.length - 1];
     commit(next, { selectedIds: [created.id], tool: "select" });
@@ -422,12 +424,17 @@ export function placeAt(point: Point) {
     startCableSegment(point);
   }
   if (state.tool === "scale") {
+    if (!activeEditable()) return;
     clickScalePoint(point);
   }
 }
 
+function cableLayerId(): string {
+  return layerIdByName(state.project, "Przewody", state.activeLayerId);
+}
+
 export function startCableSegment(point: Point) {
-  if (state.tool !== "cable" || !activeEditable()) return;
+  if (state.tool !== "cable" || !isLayerEditable(state.project, cableLayerId())) return;
   const snapped = snapPoint(point, state.snap);
   if (state.cableDraft.length === 0) {
     setState({ cableDraft: [snapped] });
@@ -437,7 +444,7 @@ export function startCableSegment(point: Point) {
 }
 
 export function previewCableSegment(point: Point) {
-  if (state.tool !== "cable" || !activeEditable()) return;
+  if (state.tool !== "cable" || !isLayerEditable(state.project, cableLayerId())) return;
   const snapped = snapPoint(point, state.snap);
   const draft = state.cableDraft;
   if (draft.length === 0) {
@@ -469,8 +476,10 @@ export function finishCable() {
     setState({ cableDraft: [] });
     return;
   }
+  const layerId = cableLayerId();
+  if (!isLayerEditable(state.project, layerId)) return;
   const next = addCable(state.project, {
-    layerId: state.activeLayerId,
+    layerId,
     points: state.cableDraft,
     color: state.cableColor,
     width: state.cableWidth,

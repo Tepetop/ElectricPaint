@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { lengthInMeters } from "../domain/geometry";
+import { addSymbol } from "../domain/commands";
+import { createDefaultLayer, createEmptyProject } from "../domain/project";
 import { isCable, isSymbol } from "../domain/types";
 import {
   clickScalePoint,
@@ -7,6 +9,7 @@ import {
   commitScaleAllSymbols,
   commitMoveElementsToLayer,
   commitAddLayer,
+  commitDeleteLayer,
   commitUpdateLayer,
   commitSetAllGroupsCollapsed,
   commitAddGroup,
@@ -19,6 +22,7 @@ import {
   closeTab,
   fitView,
   markSaved,
+  loadEditorProject,
   newProject,
   placeAt,
   previewCableSegment,
@@ -192,6 +196,7 @@ describe("symbol scale and floor scale", () => {
     commitAddLayer();
     placeAt({ x: 40, y: 0 });
     const secondLayer = getEditorState().activeLayerId;
+    commitMoveElementsToLayer([getEditorState().project.elements[1].id], secondLayer);
     commitApplySymbolScale(1.4);
     commitUpdateLayer(secondLayer, { visible: false, locked: true });
     selectIds([firstId]);
@@ -257,6 +262,7 @@ describe("layers and groups", () => {
     setPendingSymbol("switch-single");
     placeAt({ x: 10, y: 10 });
     const id = getEditorState().project.elements[0].id;
+    const originalLayerId = getEditorState().project.elements[0].layerId;
     commitAddLayer();
     const target = getEditorState().activeLayerId;
     commitUpdateLayer(target, { visible: false, locked: true });
@@ -270,7 +276,7 @@ describe("layers and groups", () => {
     expect(getEditorState().selectedIds).toEqual([]);
     expect(getEditorState().undoDepth).toBe(depth + 1);
     undo();
-    expect(getEditorState().project.elements[0].layerId).toBe(getEditorState().project.layers[0].id);
+    expect(getEditorState().project.elements[0].layerId).toBe(originalLayerId);
     expect(getEditorState().selectedIds).toEqual([]);
   });
 
@@ -285,5 +291,83 @@ describe("layers and groups", () => {
     expect(getEditorState().undoDepth).toBe(depth + 1);
     undo();
     expect(getEditorState().project.groups.every((group) => !group.collapsed)).toBe(true);
+  });
+});
+
+describe("automatic layers", () => {
+  afterEach(() => resetEditorForTests());
+
+  function layerId(name: string): string {
+    const layer = getEditorState().project.layers.find((item) => item.name === name);
+    if (!layer) throw new Error(`missing layer: ${name}`);
+    return layer.id;
+  }
+
+  it("creates four named layers on each new drawing", () => {
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Przewody", "Inne"]);
+    newProject();
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Przewody", "Inne"]);
+  });
+
+  it("routes symbols, cables and text independently of the active layer", () => {
+    setActiveLayer(layerId("Inne"));
+    for (const kind of ["socket-single", "switch-single", "wall-light", "ground"] as const) {
+      setPendingSymbol(kind);
+      placeAt({ x: 10, y: 10 });
+    }
+    expect(getEditorState().project.elements.map((element) => element.layerId)).toEqual([
+      layerId("Gniazda"), layerId("Oświetlenie"), layerId("Oświetlenie"), layerId("Inne"),
+    ]);
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 20, y: 0 });
+    finishCable();
+    expect(getEditorState().project.elements.slice(-1)[0]?.layerId).toBe(layerId("Przewody"));
+    setTool("text");
+    placeAt({ x: 30, y: 0 });
+    expect(getEditorState().project.elements.slice(-1)[0]?.layerId).toBe(layerId("Inne"));
+  });
+
+  it("falls back to the active layer after renaming, then routes by the restored name", () => {
+    const lightingId = layerId("Oświetlenie");
+    const socketsId = layerId("Gniazda");
+    setActiveLayer(socketsId);
+    commitUpdateLayer(lightingId, { name: "Światło" });
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    expect(getEditorState().project.elements[0].layerId).toBe(socketsId);
+    commitUpdateLayer(lightingId, { name: "Oświetlenie" });
+    placeAt({ x: 20, y: 0 });
+    expect(getEditorState().project.elements[1].layerId).toBe(lightingId);
+  });
+
+  it("falls back after removing the cable layer and respects target visibility and locks", () => {
+    const cableId = layerId("Przewody");
+    const otherId = layerId("Inne");
+    setActiveLayer(otherId);
+    commitDeleteLayer(cableId, { type: "delete-elements" });
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 20, y: 0 });
+    finishCable();
+    expect(getEditorState().project.elements[0].layerId).toBe(otherId);
+    commitUpdateLayer(layerId("Gniazda"), { locked: true });
+    setPendingSymbol("socket-single");
+    placeAt({ x: 40, y: 0 });
+    expect(getEditorState().project.elements).toHaveLength(1);
+    commitUpdateLayer(layerId("Gniazda"), { locked: false, visible: false });
+    placeAt({ x: 40, y: 0 });
+    expect(getEditorState().project.elements).toHaveLength(1);
+  });
+
+  it("leaves layers of previously saved projects unchanged", () => {
+    let legacy = { ...createEmptyProject("Stary"), layers: [createDefaultLayer("Warstwa 1")] };
+    legacy = addSymbol(legacy, { kind: "socket-single", layerId: legacy.layers[0].id, x: 10, y: 10 });
+    loadEditorProject(legacy, null, "stary.epaint");
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Warstwa 1"]);
+    expect(getEditorState().project.elements[0]).toEqual(legacy.elements[0]);
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    expect(getEditorState().project.elements[1].layerId).toBe(legacy.layers[0].id);
   });
 });

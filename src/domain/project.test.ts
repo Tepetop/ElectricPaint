@@ -102,7 +102,7 @@ describe("commands", () => {
     const second = project.layers[1].id;
     project = addSymbol(project, { kind: "socket-single", layerId: second, x: 1, y: 1 });
     project = deleteLayer(project, second, { type: "move-to", targetId: first });
-    expect(project.layers).toHaveLength(1);
+    expect(project.layers).toHaveLength(4);
     expect(project.elements[0].layerId).toBe(first);
   });
 

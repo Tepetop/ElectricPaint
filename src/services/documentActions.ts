@@ -5,7 +5,7 @@ import { makeDemoBackground } from "./demoProject";
 import { isTauri, saveBytesWithDialog } from "./desktop";
 import { bytesToDataUrl, dataUrlToBytes, packProject, unpackProject } from "./projectFiles";
 import { migrateProject } from "../domain/migrations";
-import { createEmptyProject } from "../domain/project";
+import { createEmptyProject, defaultSymbolLayerId, layerIdByName } from "../domain/project";
 import {
   getEditorState,
   getTabStates,
@@ -159,12 +159,12 @@ export function loadDemoProject() {
       asset: "assets/background.png",
     },
   };
-  const layerId = project.layers[0].id;
-  project = addSymbol(project, { kind: "switch-single", layerId, x: 120, y: 180 });
-  project = addSymbol(project, { kind: "luminaire", layerId, x: 240, y: 160 });
-  project = addSymbol(project, { kind: "socket-single", layerId, x: 420, y: 300 });
+  const fallbackLayerId = project.layers[0].id;
+  project = addSymbol(project, { kind: "switch-single", layerId: defaultSymbolLayerId(project, "switch-single", fallbackLayerId), x: 120, y: 180 });
+  project = addSymbol(project, { kind: "luminaire", layerId: defaultSymbolLayerId(project, "luminaire", fallbackLayerId), x: 240, y: 160 });
+  project = addSymbol(project, { kind: "socket-single", layerId: defaultSymbolLayerId(project, "socket-single", fallbackLayerId), x: 420, y: 300 });
   project = addCable(project, {
-    layerId,
+    layerId: layerIdByName(project, "Przewody", fallbackLayerId),
     points: [
       { x: 80, y: 700 },
       { x: 400, y: 700 },
