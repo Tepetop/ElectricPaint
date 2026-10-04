@@ -33,3 +33,18 @@ export async function readBytesFromPath(path: string): Promise<Uint8Array> {
   const { readFile } = await import("@tauri-apps/plugin-fs");
   return await readFile(path);
 }
+
+export async function pickOpenPath(): Promise<string | null> {
+  if (!isTauri()) return null;
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const selected = await open({
+    multiple: false,
+    filters: [
+      {
+        name: "ElectricPaint i rzuty",
+        extensions: ["epaint", "pdf", "png", "jpg", "jpeg", "webp", "dxf"],
+      },
+    ],
+  });
+  return typeof selected === "string" ? selected : null;
+}

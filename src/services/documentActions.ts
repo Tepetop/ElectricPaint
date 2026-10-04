@@ -76,10 +76,31 @@ export async function importBackgroundFile(file: File, page?: number, tabId = ge
   return { needsPage: false as const, pages: 1 };
 }
 
+const projectHandles = new Map<string, FileSystemFileHandle>();
+
+export function bindProjectHandle(tabId: string, handle: FileSystemFileHandle) {
+  projectHandles.set(tabId, handle);
+}
+
+export function forgetProjectHandle(tabId: string) {
+  projectHandles.delete(tabId);
+}
+
 export async function saveProject(saveAs: boolean) {
   const { project, backgroundDataUrl, filePath, activeTabId, editRevision } = getEditorState();
   const backgroundBytes = backgroundDataUrl ? (await dataUrlToBytes(backgroundDataUrl)).bytes : null;
   const packed = await packProject(project, backgroundBytes);
+  const opened = projectHandles.get(activeTabId);
+  if (!saveAs && opened) {
+    const writable = await opened.createWritable();
+    const copy = new Uint8Array(packed.byteLength);
+    copy.set(packed);
+    await writable.write(copy);
+    await writable.close();
+    markSaved(activeTabId, filePath ?? opened.name, editRevision);
+    await persistAutosave();
+    return;
+  }
   const suggested = `${project.name || "projekt"}.epaint`;
   if (!saveAs && filePath && isTauri() && /[\\/]/.test(filePath)) {
     const { writeFile } = await import("@tauri-apps/plugin-fs");
@@ -92,21 +113,23 @@ export async function saveProject(saveAs: boolean) {
     { name: "ElectricPaint", extensions: ["epaint"] },
   ]);
   if (path) {
+    if (saveAs) projectHandles.delete(activeTabId);
     markSaved(activeTabId, path, editRevision);
     await persistAutosave();
   }
 }
 
-export async function openProjectFile(file: File) {
+export async function openProjectFile(file: File, storedPath = file.name): Promise<string | null> {
   if (getTabStates().some((tab) => tab.filePath?.split(/[\\/]/).pop() === file.name)
-    && !window.confirm(`Plik „${file.name}” jest już otwarty. Otworzyć drugi raz? Zapis może nadpisać ten sam plik.`)) return;
+    && !window.confirm(`Plik „${file.name}” jest już otwarty. Otworzyć drugi raz? Zapis może nadpisać ten sam plik.`)) return null;
   const bytes = new Uint8Array(await file.arrayBuffer());
   const packed = await unpackProject(bytes);
   const dataUrl =
     packed.backgroundBytes && packed.backgroundMime
       ? bytesToDataUrl(packed.backgroundBytes, packed.backgroundMime)
       : null;
-  loadEditorProject(packed.project, dataUrl, file.name);
+  loadEditorProject(packed.project, dataUrl, storedPath);
+  return getEditorState().activeTabId;
 }
 
 export async function exportCurrentPng() {

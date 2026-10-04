@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { inspectPdf, rasterizePdfPage } from "./background";
 import { clearAutosave, readAutosave, writeAutosave } from "./autosave";
-import { saveBytesWithDialog } from "./desktop";
-import { importBackgroundFile, persistAutosave, restoreAutosave, saveProject } from "./documentActions";
+import { writeFile } from "@tauri-apps/plugin-fs";
+import { isTauri, saveBytesWithDialog } from "./desktop";
+import { bindProjectHandle, importBackgroundFile, openProjectFile, persistAutosave, restoreAutosave, saveProject } from "./documentActions";
+import { packProject } from "./projectFiles";
 import { getEditorState, getTabState, newProject, placeAt, resetEditorForTests, setPendingSymbol, switchTab } from "../state/editorStore";
 import { createEmptyProject } from "../domain/project";
 
@@ -14,6 +16,10 @@ vi.mock("./autosave", () => ({
 vi.mock("./desktop", () => ({
   isTauri: vi.fn(() => false),
   saveBytesWithDialog: vi.fn().mockResolvedValue("zapis.epaint"),
+}));
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  writeFile: vi.fn().mockResolvedValue(undefined),
+  readFile: vi.fn(),
 }));
 vi.mock("./background", () => ({
   inspectPdf: vi.fn(),
@@ -27,8 +33,18 @@ vi.mock("../editor/exportDoc", () => ({
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.mocked(isTauri).mockImplementation(() => false);
   resetEditorForTests();
 });
+
+async function epaintFile(name: string) {
+  const bytes = await packProject(createEmptyProject("Dom"), null);
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  const file = new File([copy], name);
+  file.arrayBuffer = async () => copy.buffer;
+  return file;
+}
 
 describe("document actions with tabs", () => {
   it("zapis po przełączeniu oznacza jako zapisany rzut, który rozpoczął operację", async () => {
@@ -80,6 +96,49 @@ describe("document actions with tabs", () => {
     expect(getTabState(firstId)?.project.background?.kind).toBe("pdf");
     expect(getTabState(firstId)?.backgroundDataUrl).toBe("data:image/png;base64,AA==");
     expect(getTabState(secondId)?.project.background).toBeNull();
+  });
+
+  it("zapis otwartego projektu nadpisuje ten plik", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    await openProjectFile(await epaintFile("dom.epaint"), "/home/tepe/rzuty/dom.epaint");
+    setPendingSymbol("switch-single");
+    placeAt({ x: 10, y: 10 });
+    await saveProject(false);
+    expect(writeFile).toHaveBeenCalledWith("/home/tepe/rzuty/dom.epaint", expect.any(Uint8Array));
+    expect(saveBytesWithDialog).not.toHaveBeenCalled();
+    expect(getEditorState().dirty).toBe(false);
+    expect(getEditorState().filePath).toBe("/home/tepe/rzuty/dom.epaint");
+    vi.mocked(writeFile).mockClear();
+    await saveProject(true);
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(saveBytesWithDialog).toHaveBeenCalledOnce();
+  });
+
+  it("sama nazwa pliku nie jest zapisywana w katalogu roboczym", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    await openProjectFile(await epaintFile("dom.epaint"));
+    await saveProject(false);
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(saveBytesWithDialog).toHaveBeenCalledOnce();
+  });
+
+  it("zapis w przeglądarce aktualizuje otwarty plik", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const close = vi.fn().mockResolvedValue(undefined);
+    const handle = {
+      name: "dom.epaint",
+      createWritable: vi.fn().mockResolvedValue({ write, close }),
+    } as unknown as FileSystemFileHandle;
+    const tabId = await openProjectFile(await epaintFile("dom.epaint"));
+    bindProjectHandle(tabId!, handle);
+    setPendingSymbol("switch-single");
+    placeAt({ x: 10, y: 10 });
+    await saveProject(false);
+    expect(write).toHaveBeenCalledWith(expect.any(Uint8Array));
+    expect(close).toHaveBeenCalledOnce();
+    expect(saveBytesWithDialog).not.toHaveBeenCalled();
+    expect(getEditorState().dirty).toBe(false);
+    expect(getEditorState().filePath).toBe("dom.epaint");
   });
 
   it("odczytuje dawny autosave pojedynczego rzutu", async () => {

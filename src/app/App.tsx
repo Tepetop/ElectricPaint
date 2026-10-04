@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Editor } from "../editor/Editor";
 import { preloadSymbolImages } from "../editor/images";
 import {
+  bindProjectHandle,
   checkAutosave,
   exportCurrentPdf,
   exportCurrentPng,
+  forgetProjectHandle,
   importBackgroundFile,
   loadDemoProject,
   openProjectFile,
@@ -12,13 +14,24 @@ import {
   restoreAutosave,
   saveProject,
 } from "../services/documentActions";
-import { isTauri } from "../services/desktop";
+import { isTauri, pickOpenPath, readBytesFromPath } from "../services/desktop";
 import { closeTab, fitView, getEditorState, hasUnsavedTabs, newProject, setRestoreAvailable, switchTab, useEditor } from "../state/editorStore";
 import { RightPanel } from "../ui/RightPanel";
 import { StatusBar } from "../ui/StatusBar";
 import { SymbolPalette } from "../ui/SymbolPalette";
 import { Toolbar } from "../ui/Toolbar";
 import "./styles.css";
+
+function browserOpenPicker() {
+  return (window as Window & {
+    showOpenFilePicker?: (options: {
+      multiple?: false;
+      mode?: "readwrite";
+      excludeAcceptAllOption?: boolean;
+      types?: { description: string; accept: Record<string, string[]> }[];
+    }) => Promise<FileSystemFileHandle[]>;
+  }).showOpenFilePicker;
+}
 
 function isFloorPlanFile(file: File) {
   const name = file.name.toLowerCase();
@@ -37,6 +50,7 @@ function isFloorPlanFile(file: File) {
 export function App() {
   const openRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const openActionRef = useRef<() => void>(() => {});
   const restoreAvailable = useEditor((s) => s.restoreAvailable);
   const tabs = useEditor((s) => s.tabs);
   const activeTabId = useEditor((s) => s.activeTabId);
@@ -65,7 +79,7 @@ export function App() {
       }
       if (ctrl && e.key.toLowerCase() === "o") {
         e.preventDefault();
-        openRef.current?.click();
+        openActionRef.current();
       }
       if (ctrl && e.key.toLowerCase() === "n") {
         e.preventDefault();
@@ -132,11 +146,72 @@ export function App() {
     }
   }
 
+  async function onOpen() {
+    try {
+      if (isTauri()) {
+        const path = await pickOpenPath();
+        if (!path) return;
+        const bytes = await readBytesFromPath(path);
+        const name = path.split(/[\\/]/).pop() || path;
+        const copy = new Uint8Array(bytes.byteLength);
+        copy.set(bytes);
+        const file = new File([copy], name);
+        if (isFloorPlanFile(file)) {
+          await onImportFile(file);
+        } else {
+          await openProjectFile(file, path);
+        }
+        return;
+      }
+      const picker = browserOpenPicker();
+      if (!picker) {
+        openRef.current?.click();
+        return;
+      }
+      const handles = await picker({
+        multiple: false,
+        mode: "readwrite",
+        excludeAcceptAllOption: false,
+        types: [
+          {
+            description: "ElectricPaint",
+            accept: { "application/octet-stream": [".epaint", ".dxf"] },
+          },
+          {
+            description: "Rzut",
+            accept: {
+              "application/pdf": [".pdf"],
+              "image/png": [".png"],
+              "image/jpeg": [".jpg", ".jpeg"],
+              "image/webp": [".webp"],
+            },
+          },
+        ],
+      });
+      const handle = handles[0];
+      if (!handle) return;
+      const file = await handle.getFile();
+      if (isFloorPlanFile(file)) {
+        await onImportFile(file);
+        return;
+      }
+      const tabId = await openProjectFile(file);
+      if (tabId) bindProjectHandle(tabId, handle);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setImportError(err instanceof Error ? err.message : "Nie można otworzyć pliku");
+    }
+  }
+
+  openActionRef.current = () => {
+    void onOpen();
+  };
+
   return (
     <div className="shell">
       <Toolbar
         onNew={() => newProject()}
-        onOpen={() => openRef.current?.click()}
+        onOpen={() => openActionRef.current()}
         onSave={() => void saveProject(false)}
         onSaveAs={() => void saveProject(true)}
         onImport={() => importRef.current?.click()}
@@ -151,11 +226,13 @@ export function App() {
               {tab.title}{tab.dirty ? " •" : ""}
             </button>
             <button type="button" className="tab-close" aria-label={`Zamknij ${tab.title}`} onClick={() => {
-              if (closeTab(tab.id)) void persistAutosave();
+              if (closeTab(tab.id)) {
+                forgetProjectHandle(tab.id);
+                void persistAutosave();
+              }
             }}>×</button>
           </div>
         ))}
-        <button type="button" className="tab-add" onClick={newProject}>+ Nowa zakładka</button>
       </div>
       <SymbolPalette />
       <Editor />

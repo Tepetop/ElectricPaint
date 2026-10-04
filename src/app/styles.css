@@ -80,7 +80,6 @@ input, select, textarea {
 .tab-item.active { border-color: var(--accent); background: #3a2f1c; }
 .tab-item button { border: 0; background: transparent; white-space: nowrap; }
 .tab-item .tab-close { padding: 4px 8px; color: var(--muted); }
-.tab-add { flex: 0 0 auto; white-space: nowrap; }
 
 .left-panel, .right-panel {
   background: var(--bg-2);

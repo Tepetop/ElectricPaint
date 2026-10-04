@@ -51,7 +51,7 @@ test("zakładki, ponowne numerowanie grup i dopasowanie widoku", async ({ page }
   await expect(page.getByRole("tab")).toHaveCount(1);
   await page.getByRole("button", { name: "Łącznik schodowy", exact: true }).click();
   await page.evaluate(() => window.__ep?.placeAt({ x: 100, y: 100 }));
-  await page.getByRole("button", { name: "+ Nowa zakładka" }).click();
+  await page.getByRole("button", { name: "Nowy", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveCount(2);
   expect(await page.evaluate(() => window.__ep?.getEditorState().project.elements.length)).toBe(0);
 
