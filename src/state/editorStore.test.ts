@@ -1,8 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { lengthInMeters } from "../domain/geometry";
 import { isCable, isSymbol } from "../domain/types";
 import {
   clickScalePoint,
   commitApplySymbolScale,
+  commitScaleAllSymbols,
+  commitMoveElementsToLayer,
+  commitAddLayer,
+  commitUpdateLayer,
+  commitSetAllGroupsCollapsed,
+  commitAddGroup,
   commitScaleLength,
   commitCableSegment,
   duplicateSelected,
@@ -13,7 +20,9 @@ import {
   redo,
   resetEditorForTests,
   selectIds,
+  setActiveLayer,
   setPendingSymbol,
+  setSnap,
   setTool,
   startCableSegment,
   undo,
@@ -95,25 +104,105 @@ describe("symbol scale and floor scale", () => {
     expect(symbols[1].scale).toBe(0.6);
   });
 
-  it("dwa kliknięcia zapisują odcinek odniesienia", () => {
+  it("skaluje wszystkie symbole także na ukrytej i zablokowanej warstwie w jednym kroku", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    const firstId = getEditorState().project.elements[0].id;
+    commitAddLayer();
+    placeAt({ x: 40, y: 0 });
+    const secondLayer = getEditorState().activeLayerId;
+    commitApplySymbolScale(1.4);
+    commitUpdateLayer(secondLayer, { visible: false, locked: true });
+    selectIds([firstId]);
+    const depth = getEditorState().undoDepth;
+    commitScaleAllSymbols(0.7);
+    expect(getEditorState().undoDepth).toBe(depth + 1);
+    expect(getEditorState().project.elements.filter(isSymbol).map((el) => el.scale)).toEqual([0.7, 0.7]);
+    expect(getEditorState().project.defaultSymbolScale).toBe(0.7);
+    undo();
+    expect(getEditorState().project.elements.filter(isSymbol).map((el) => el.scale)).toEqual([1, 1.4]);
+    expect(getEditorState().project.defaultSymbolScale).toBe(1.4);
+  });
+
+  it("nie zapisuje niepoprawnej ani niezmienionej skali", () => {
+    const depth = getEditorState().undoDepth;
+    for (const value of [0, -1, NaN, Infinity, 1]) commitScaleAllSymbols(value);
+    expect(getEditorState().undoDepth).toBe(depth);
+    expect(getEditorState().dirty).toBe(false);
+  });
+
+  it("szkic skali nie zmienia długości przed zatwierdzeniem i ma dokładność 1 px", () => {
     setTool("scale");
+    setSnap(false);
     clickScalePoint({ x: 0, y: 0 });
-    clickScalePoint({ x: 100, y: 0 });
+    clickScalePoint({ x: 0.4, y: 0 });
+    expect(getEditorState().scaleDraft).toHaveLength(1);
+    clickScalePoint({ x: 12.6, y: 0 });
+    expect(getEditorState().project.scaleReference).toBeNull();
+    expect(getEditorState().scaleDraft).toEqual([{ x: 0, y: 0 }, { x: 13, y: 0 }]);
+    expect(getEditorState().dirty).toBe(false);
+    commitScaleLength(0);
+    expect(getEditorState().project.scaleReference).toBeNull();
+    commitScaleLength(0.9);
     expect(getEditorState().project.scaleReference).toEqual({
       x1: 0,
       y1: 0,
-      x2: 100,
+      x2: 13,
       y2: 0,
-      lengthM: 1,
+      lengthM: 0.9,
     });
     expect(getEditorState().scaleDraft).toEqual([]);
   });
 
-  it("zapisuje długość odcinka mniejszą niż metr", () => {
+  it("zachowuje przeliczenie długości przewodu do zatwierdzenia nowego odcinka", () => {
     setTool("scale");
     clickScalePoint({ x: 0, y: 0 });
     clickScalePoint({ x: 100, y: 0 });
-    commitScaleLength(0.9);
-    expect(getEditorState().project.scaleReference?.lengthM).toBeCloseTo(0.9);
+    commitScaleLength(1);
+    const points = [{ x: 0, y: 0 }, { x: 50, y: 0 }];
+    expect(lengthInMeters(points, getEditorState().project.scaleReference)).toBe(0.5);
+    clickScalePoint({ x: 0, y: 0 });
+    clickScalePoint({ x: 50, y: 0 });
+    expect(lengthInMeters(points, getEditorState().project.scaleReference)).toBe(0.5);
+    commitScaleLength(1);
+    expect(lengthInMeters(points, getEditorState().project.scaleReference)).toBe(1);
+  });
+});
+
+describe("layers and groups", () => {
+  afterEach(() => resetEditorForTests());
+
+  it("przenosi zaznaczone elementy na ukrytą warstwę i usuwa je z zaznaczenia", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 10, y: 10 });
+    const id = getEditorState().project.elements[0].id;
+    commitAddLayer();
+    const target = getEditorState().activeLayerId;
+    commitUpdateLayer(target, { visible: false, locked: true });
+    setActiveLayer(getEditorState().project.layers[0].id);
+    selectIds([id]);
+    const depth = getEditorState().undoDepth;
+    commitMoveElementsToLayer([id], target);
+    expect(getEditorState().project.elements[0].layerId).toBe(target);
+    expect(getEditorState().selectedIds).toEqual([]);
+    selectIds([id]);
+    expect(getEditorState().selectedIds).toEqual([]);
+    expect(getEditorState().undoDepth).toBe(depth + 1);
+    undo();
+    expect(getEditorState().project.elements[0].layerId).toBe(getEditorState().project.layers[0].id);
+    expect(getEditorState().selectedIds).toEqual([]);
+  });
+
+  it("zbiorcze zwinięcie grup tworzy tylko jeden krok", () => {
+    commitAddGroup();
+    commitAddGroup();
+    const depth = getEditorState().undoDepth;
+    commitSetAllGroupsCollapsed(true);
+    expect(getEditorState().project.groups.every((group) => group.collapsed)).toBe(true);
+    expect(getEditorState().undoDepth).toBe(depth + 1);
+    commitSetAllGroupsCollapsed(true);
+    expect(getEditorState().undoDepth).toBe(depth + 1);
+    undo();
+    expect(getEditorState().project.groups.every((group) => !group.collapsed)).toBe(true);
   });
 });

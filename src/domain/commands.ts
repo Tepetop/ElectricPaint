@@ -243,13 +243,44 @@ export function removeFromGroup(
 }
 
 export function applySymbolScaleSetting(project: Project, scale: number, selectedIds: string[]): Project {
-  const value = Number(scale) || 1;
+  if (!Number.isFinite(scale) || scale <= 0) return project;
+  const value = scale;
   let next: Project = { ...project, defaultSymbolScale: value };
   const selected = next.elements.filter((el) => selectedIds.includes(el.id) && isSymbol(el));
   if (selected.length === 1) {
     next = replaceElement(next, selected[0].id, { scale: value });
   }
   return next;
+}
+
+export function scaleAllSymbols(project: Project, scale: number): Project {
+  if (!Number.isFinite(scale) || scale <= 0) return project;
+  if (project.defaultSymbolScale === scale && project.elements.every((el) => !isSymbol(el) || el.scale === scale)) {
+    return project;
+  }
+  return {
+    ...project,
+    defaultSymbolScale: scale,
+    elements: project.elements.map((el) => isSymbol(el) && el.scale !== scale ? { ...el, scale } : el),
+  };
+}
+
+export function moveElementsToLayer(project: Project, ids: string[], layerId: string): Project {
+  if (!project.layers.some((layer) => layer.id === layerId)) return project;
+  const selected = new Set(ids);
+  if (!project.elements.some((el) => selected.has(el.id) && el.layerId !== layerId)) return project;
+  return {
+    ...project,
+    elements: project.elements.map((el) => selected.has(el.id) && el.layerId !== layerId ? { ...el, layerId } : el),
+  };
+}
+
+export function setAllGroupsCollapsed(project: Project, collapsed: boolean): Project {
+  if (project.groups.every((group) => group.collapsed === collapsed)) return project;
+  return {
+    ...project,
+    groups: project.groups.map((group) => group.collapsed === collapsed ? group : { ...group, collapsed }),
+  };
 }
 
 export function setScaleReference(project: Project, scaleReference: ScaleReference): Project {

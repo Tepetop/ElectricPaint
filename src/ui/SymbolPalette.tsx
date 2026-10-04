@@ -4,6 +4,7 @@ import { metersToMm, mmToMeters } from "../domain/geometry";
 import { isSymbol } from "../domain/types";
 import {
   commitApplySymbolScale,
+  commitScaleAllSymbols,
   commitScaleLength,
   setCableStyle,
   setPendingSymbol,
@@ -30,6 +31,9 @@ export function SymbolPalette() {
     : undefined;
   const selectedSymbol = selected && isSymbol(selected) ? selected : undefined;
   const scaleValue = selectedSymbol?.scale ?? defaultSymbolScale;
+  const [scaleDraft, setScaleDraft] = useState(String(scaleValue));
+  useEffect(() => setScaleDraft(String(scaleValue)), [scaleValue]);
+  const scalePoints = useEditor((s) => s.scaleDraft);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -54,10 +58,20 @@ export function SymbolPalette() {
             type="number"
             step="0.1"
             min="0.1"
-            value={scaleValue}
-            onChange={(e) => commitApplySymbolScale(Number(e.target.value) || 1)}
+            value={scaleDraft}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setScaleDraft(raw);
+              if (raw.trim() === "") return;
+              const value = Number(raw);
+              if (Number.isFinite(value) && value > 0) commitApplySymbolScale(value);
+            }}
           />
         </label>
+        <button type="button" onClick={() => {
+          const value = scaleDraft.trim() === "" ? NaN : Number(scaleDraft);
+          commitScaleAllSymbols(value);
+        }}>Skaluj wszystkie</button>
         <p className="legend">Nowe symbole dostają tę skalę. Zaznaczony symbol też zostanie przeskalowany.</p>
       </div>
       {tool === "scale" && (
@@ -65,7 +79,9 @@ export function SymbolPalette() {
           <p className="legend">Kliknij dwa punkty na rzucie (np. krawędzie okna), potem wpisz rzeczywistą długość w milimetrach.</p>
         </div>
       )}
-      {scaleReference && <ScaleLengthField lengthM={scaleReference.lengthM} />}
+      {tool === "scale" && (scalePoints.length === 2 || (scalePoints.length === 0 && scaleReference)) && (
+        <ScaleLengthField key={scalePoints.length === 2 ? `${scalePoints[0].x},${scalePoints[0].y}:${scalePoints[1].x},${scalePoints[1].y}` : "saved"} lengthM={scaleReference?.lengthM ?? null} />
+      )}
       {tool === "cable" && (
         <div className="section">
           <label className="field">Kolor
@@ -125,8 +141,8 @@ export function SymbolPalette() {
   );
 }
 
-function ScaleLengthField({ lengthM }: { lengthM: number }) {
-  const display = String(metersToMm(lengthM));
+function ScaleLengthField({ lengthM }: { lengthM: number | null }) {
+  const display = lengthM == null ? "" : String(metersToMm(lengthM));
   const [draft, setDraft] = useState(display);
   useEffect(() => {
     setDraft(display);
@@ -140,17 +156,13 @@ function ScaleLengthField({ lengthM }: { lengthM: number }) {
           step="1"
           min="1"
           value={draft}
-          onChange={(e) => {
-            const raw = e.target.value;
-            setDraft(raw);
-            if (raw === "") return;
-            const next = Number(raw);
-            if (!Number.isFinite(next) || next <= 0) return;
-            commitScaleLength(mmToMeters(next));
-          }}
-          onBlur={() => setDraft(display)}
+          onChange={(e) => setDraft(e.target.value)}
         />
       </label>
+      <button type="button" onClick={() => {
+        const value = draft.trim() === "" ? NaN : Number(draft);
+        if (Number.isFinite(value) && value > 0) commitScaleLength(mmToMeters(value));
+      }}>Zatwierdź skalę</button>
     </div>
   );
 }

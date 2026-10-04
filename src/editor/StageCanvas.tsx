@@ -72,6 +72,7 @@ export function StageCanvas() {
   const cableWidth = useEditor((s) => s.cableWidth);
   const cableStyle = useEditor((s) => s.cableStyle);
   const scaleDraft = useEditor((s) => s.scaleDraft);
+  const scalePreview = useEditor((s) => s.scalePreview);
   const scaleReference = useEditor((s) => s.project.scaleReference);
   const layers = project.layers;
   const hidden = useMemo(() => new Set(layers.filter((l) => !l.visible).map((l) => l.id)), [layers]);
@@ -126,11 +127,12 @@ export function StageCanvas() {
     const tr = trRef.current;
     if (!tr) return;
     const nodes = selectedIds
+      .filter((id) => !locked.has(project.elements.find((el) => el.id === id)?.layerId ?? ""))
       .map((id) => nodeRefs.current.get(id))
       .filter((node): node is Konva.Node => Boolean(node) && node!.getAttr("epType") !== "cable");
     tr.nodes(nodes);
     tr.getLayer()?.batchDraw();
-  }, [selectedIds, project.elements, imagesReady]);
+  }, [selectedIds, project.elements, locked, imagesReady]);
 
   const visible = project.elements.filter((el) => !hidden.has(el.layerId));
   const viewport = useEditor((s) => s.viewport);
@@ -442,7 +444,7 @@ export function StageCanvas() {
                 listening={false}
               />
             )}
-            {scaleReference && (
+            {tool === "scale" && scaleReference && scaleDraft.length === 0 && (
               <ScaleLine
                 x1={scaleReference.x1}
                 y1={scaleReference.y1}
@@ -455,8 +457,8 @@ export function StageCanvas() {
               <ScaleLine
                 x1={scaleDraft[0].x}
                 y1={scaleDraft[0].y}
-                x2={(scaleDraft[1] ?? scaleDraft[0]).x}
-                y2={(scaleDraft[1] ?? scaleDraft[0]).y}
+                x2={(scaleDraft[1] ?? scalePreview ?? scaleDraft[0]).x}
+                y2={(scaleDraft[1] ?? scalePreview ?? scaleDraft[0]).y}
               />
             )}
             {marquee && (

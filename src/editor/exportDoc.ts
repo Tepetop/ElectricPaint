@@ -1,9 +1,9 @@
 import Konva from "konva";
 import { jsPDF } from "jspdf";
 import { symbolByKind } from "../catalog/symbols";
-import type { OverlayElement, Project, ScaleReference } from "../domain/types";
+import type { OverlayElement, Project } from "../domain/types";
 import { isCable, isSymbol, isText } from "../domain/types";
-import { SYMBOL_SIZE, formatScaleLength, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
+import { SYMBOL_SIZE, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
 import { collectSymbolList } from "../domain/symbolList";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 
@@ -113,10 +113,6 @@ export async function buildExportStage(
     }
   }
 
-  if (project.scaleReference) {
-    addScaleOverlay(layer, project.scaleReference);
-  }
-
   layer.draw();
   return stage;
 }
@@ -163,28 +159,6 @@ export function elementLabel(el: OverlayElement): string {
   }
   if (isCable(el)) return el.name;
   return el.text;
-}
-
-function addScaleOverlay(layer: Konva.Layer, ref: ScaleReference) {
-  layer.add(
-    new Konva.Line({
-      points: [ref.x1, ref.y1, ref.x2, ref.y2],
-      stroke: "#c2410c",
-      strokeWidth: 2,
-      dash: [8, 4],
-    }),
-  );
-  layer.add(new Konva.Circle({ x: ref.x1, y: ref.y1, radius: 4, fill: "#c2410c" }));
-  layer.add(new Konva.Circle({ x: ref.x2, y: ref.y2, radius: 4, fill: "#c2410c" }));
-  layer.add(
-    new Konva.Text({
-      x: (ref.x1 + ref.x2) / 2 + 6,
-      y: (ref.y1 + ref.y2) / 2 - 14,
-      text: formatScaleLength(ref.lengthM),
-      fontSize: 13,
-      fill: "#c2410c",
-    }),
-  );
 }
 
 function addSymbolListPages(pdf: jsPDF, project: Project) {

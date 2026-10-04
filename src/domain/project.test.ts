@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addCable, addGroup, addLayer, addSymbol, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteLayer, duplicateElements, moveElements } from "./commands";
+import { addCable, addGroup, addLayer, addSymbol, addText, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteLayer, duplicateElements, moveElements, moveElementsToLayer, scaleAllSymbols } from "./commands";
 import { migrateProject } from "./migrations";
 import { allocateLabel, symbolRole } from "./numbering";
 import { createEmptyProject } from "./project";
@@ -123,6 +123,39 @@ describe("commands", () => {
     const scales = project.elements.filter(isSymbol).map((el) => el.scale);
     expect(scales).toEqual([1, 0.6]);
     expect(project.elements.filter(isSymbol)[1].description).toBe("");
+  });
+
+  it("przenosi symbole, przewody i teksty bez zmiany innych pól i grup", () => {
+    let project = createEmptyProject();
+    const source = project.layers[0].id;
+    project = addLayer(project, "Ukryta");
+    const target = project.layers[1].id;
+    project = addSymbol(project, { kind: "switch-single", layerId: source, x: 17, y: 28 });
+    project = addCable(project, { layerId: source, points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] });
+    project = addText(project, { layerId: source, x: 9, y: 10, text: "Uwaga" });
+    const ids = project.elements.map((el) => el.id);
+    project = addGroup(project);
+    project = assignSelectedToGroup(project, project.groups[0].id, ids);
+    const original = project;
+    expect(moveElementsToLayer(project, ids, "brak-warstwy")).toBe(project);
+    project = moveElementsToLayer(project, ids, target);
+    expect(project.elements.map((el) => ({ ...el, layerId: source }))).toEqual(original.elements);
+    expect(project.groups).toEqual(original.groups);
+    expect(moveElementsToLayer(project, ids, target)).toBe(project);
+  });
+
+  it("skaluje symbole bez zmiany tekstu, przewodów i położenia", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 17, y: 28 });
+    project = addCable(project, { layerId, points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] });
+    project = addText(project, { layerId, x: 9, y: 10 });
+    const original = project;
+    expect(scaleAllSymbols(project, NaN)).toBe(project);
+    project = scaleAllSymbols(project, 0.5);
+    expect(project.elements[0]).toEqual({ ...original.elements[0], scale: 0.5 });
+    expect(project.elements.slice(1)).toEqual(original.elements.slice(1));
+    expect(project.defaultSymbolScale).toBe(0.5);
   });
 });
 

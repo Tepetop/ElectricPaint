@@ -5,6 +5,7 @@ import {
   commitAssignSelected,
   commitDeleteGroup,
   commitRemoveFromGroup,
+  commitSetAllGroupsCollapsed,
   commitUpdateGroup,
   selectIds,
   useEditor,
@@ -25,6 +26,10 @@ export function GroupsPanel() {
         <strong>Grupy sterowania</strong>
         <button type="button" onClick={commitAddGroup}>Nowa grupa</button>
       </div>
+      {groups.length > 0 && <div className="row" style={{ marginBottom: 8 }}>
+        <button type="button" onClick={() => commitSetAllGroupsCollapsed(true)}>Zwiń wszystkie</button>
+        <button type="button" onClick={() => commitSetAllGroupsCollapsed(false)}>Rozwiń wszystkie</button>
+      </div>}
       {groups.length === 0 && (
         <p className="legend">Utwórz grupę, dodaj łączniki i oprawy, nadaj oznaczenie i zatwierdź, aby wpisać nazwy na schemacie.</p>
       )}

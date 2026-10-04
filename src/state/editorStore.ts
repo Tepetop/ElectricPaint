@@ -13,11 +13,14 @@ import {
   deleteLayer,
   duplicateElements,
   moveElements,
+  moveElementsToLayer,
   removeFromGroup,
   reorderLayer,
   replaceElement,
   setScaleLength,
   setScaleReference,
+  scaleAllSymbols,
+  setAllGroupsCollapsed,
   snapshotProject,
   updateGroup,
   updateLayer,
@@ -43,6 +46,7 @@ export type EditorState = {
   snap: boolean;
   cableDraft: Point[];
   scaleDraft: Point[];
+  scalePreview: Point | null;
   cableColor: string;
   cableWidth: number;
   cableStyle: "solid" | "dashed";
@@ -75,6 +79,7 @@ function emptyState(): EditorState {
     snap: true,
     cableDraft: [],
     scaleDraft: [],
+    scalePreview: null,
     cableColor: "#1d4ed8",
     cableWidth: 3,
     cableStyle: "solid",
@@ -97,6 +102,7 @@ function setState(patch: Partial<EditorState>) {
 }
 
 function commit(next: Project, extra: Partial<EditorState> = {}) {
+  if (next === state.project) return;
   history = {
     past: [...history.past, snapshotProject(state.project)].slice(-HISTORY_LIMIT),
     future: [],
@@ -176,6 +182,7 @@ export function setTool(tool: Tool) {
     pendingSymbolKind: tool === "symbol" ? state.pendingSymbolKind : null,
     cableDraft: tool === "cable" ? state.cableDraft : [],
     scaleDraft: tool === "scale" ? state.scaleDraft : [],
+    scalePreview: tool === "scale" ? state.scalePreview : null,
   });
 }
 
@@ -208,7 +215,11 @@ export function setActiveLayer(activeLayerId: string) {
 }
 
 export function selectIds(ids: string[], additive = false) {
-  const selectedIds = additive ? [...new Set([...state.selectedIds, ...ids])] : ids;
+  const editableIds = ids.filter((id) => {
+    const element = state.project.elements.find((el) => el.id === id);
+    return element && isLayerEditable(state.project, element.layerId);
+  });
+  const selectedIds = additive ? [...new Set([...state.selectedIds, ...editableIds])] : editableIds;
   setState({ selectedIds });
 }
 
@@ -319,47 +330,60 @@ export function cancelCable() {
 
 export function clickScalePoint(point: Point) {
   if (state.tool !== "scale") return;
-  const snapped = snapPoint(point, state.snap);
-  if (state.scaleDraft.length === 0) {
-    setState({ scaleDraft: [snapped] });
+  const snapped = snapPoint(point, true, 1);
+  if (state.scaleDraft.length === 0 || state.scaleDraft.length === 2) {
+    setState({ scaleDraft: [snapped], scalePreview: null });
     return;
   }
   const start = state.scaleDraft[0];
-  const lengthM = state.project.scaleReference?.lengthM ?? 1;
-  commit(setScaleReference(state.project, {
-    x1: start.x,
-    y1: start.y,
-    x2: snapped.x,
-    y2: snapped.y,
-    lengthM,
-  }), { scaleDraft: [] });
+  if (start.x === snapped.x && start.y === snapped.y) return;
+  setState({ scaleDraft: [start, snapped], scalePreview: null });
 }
 
 export function previewScalePoint(point: Point) {
-  if (state.tool !== "scale" || state.scaleDraft.length === 0) return;
-  const snapped = snapPoint(point, state.snap);
+  if (state.tool !== "scale" || state.scaleDraft.length !== 1) return;
+  const snapped = snapPoint(point, true, 1);
   const start = state.scaleDraft[0];
-  if (start.x === snapped.x && start.y === snapped.y) return;
-  const draft = state.scaleDraft;
-  if (draft.length === 1) {
-    setState({ scaleDraft: [start, snapped] });
-    return;
-  }
-  const last = draft[draft.length - 1];
-  if (last.x === snapped.x && last.y === snapped.y) return;
-  setState({ scaleDraft: [start, snapped] });
+  if (state.scalePreview?.x === snapped.x && state.scalePreview?.y === snapped.y) return;
+  setState({ scalePreview: start.x === snapped.x && start.y === snapped.y ? null : snapped });
 }
 
 export function cancelScale() {
-  setState({ scaleDraft: [] });
+  setState({ scaleDraft: [], scalePreview: null });
 }
 
 export function commitScaleLength(lengthM: number) {
-  commit(setScaleLength(state.project, lengthM));
+  if (!Number.isFinite(lengthM) || lengthM <= 0) return;
+  if (state.scaleDraft.length === 2) {
+    const [start, end] = state.scaleDraft;
+    if (start.x === end.x && start.y === end.y) return;
+    commit(setScaleReference(state.project, {
+      x1: start.x, y1: start.y, x2: end.x, y2: end.y, lengthM,
+    }), { scaleDraft: [], scalePreview: null });
+    return;
+  }
+  if (state.scaleDraft.length === 0 && state.project.scaleReference?.lengthM !== lengthM) {
+    commit(setScaleLength(state.project, lengthM));
+  }
 }
 
 export function commitApplySymbolScale(scale: number) {
   commit(applySymbolScaleSetting(state.project, scale, state.selectedIds));
+}
+
+export function commitScaleAllSymbols(scale: number) {
+  commit(scaleAllSymbols(state.project, scale));
+}
+
+export function commitMoveElementsToLayer(ids: string[], layerId: string) {
+  const next = moveElementsToLayer(state.project, ids, layerId);
+  if (next === state.project) return;
+  const editable = new Set(next.layers.filter((layer) => layer.visible && !layer.locked).map((layer) => layer.id));
+  const selectedIds = state.selectedIds.filter((id) => {
+    const element = next.elements.find((el) => el.id === id);
+    return element && editable.has(element.layerId);
+  });
+  commit(next, { selectedIds });
 }
 
 export function commitElementPatch(id: string, patch: Partial<OverlayElement>) {
@@ -398,7 +422,13 @@ export function commitUpdateLayer(
   layerId: string,
   patch: Partial<Pick<Project["layers"][number], "name" | "visible" | "locked">>,
 ) {
-  commit(updateLayer(state.project, layerId, patch));
+  const next = updateLayer(state.project, layerId, patch);
+  const editable = new Set(next.layers.filter((layer) => layer.visible && !layer.locked).map((layer) => layer.id));
+  const selectedIds = state.selectedIds.filter((id) => {
+    const element = next.elements.find((el) => el.id === id);
+    return element && editable.has(element.layerId);
+  });
+  commit(next, { selectedIds });
 }
 
 export function commitReorderLayer(layerId: string, direction: -1 | 1) {
@@ -423,6 +453,10 @@ export function commitUpdateGroup(
   patch: Partial<Omit<Project["groups"][number], "id">>,
 ) {
   commit(updateGroup(state.project, groupId, patch));
+}
+
+export function commitSetAllGroupsCollapsed(collapsed: boolean) {
+  commit(setAllGroupsCollapsed(state.project, collapsed));
 }
 
 export function commitDeleteGroup(groupId: string) {

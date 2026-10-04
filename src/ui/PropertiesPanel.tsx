@@ -2,20 +2,34 @@ import { useEffect, useState } from "react";
 import { symbolByKind } from "../catalog/symbols";
 import { formatMeters, lengthInMeters } from "../domain/geometry";
 import { isCable, isSymbol, isText, type OverlayElement, type ScaleReference } from "../domain/types";
-import { commitElementPatch, useEditor } from "../state/editorStore";
+import { commitElementPatch, commitMoveElementsToLayer, useEditor } from "../state/editorStore";
 
 export function PropertiesPanel() {
   const selectedIds = useEditor((s) => s.selectedIds);
   const elements = useEditor((s) => s.project.elements);
+  const layers = useEditor((s) => s.project.layers);
   const selected = elements.filter((el) => selectedIds.includes(el.id));
   if (selected.length === 0) {
     return <p className="legend">Zaznacz element, aby edytować właściwości.</p>;
   }
   if (selected.length > 1) {
-    return <p className="legend">Zaznaczono {selected.length} elementów.</p>;
+    return <div>
+      <p className="legend">Zaznaczono {selected.length} elementów.</p>
+      <LayerField selected={selected} layers={layers} />
+    </div>;
   }
   const el = selected[0];
-  return <SingleProps el={el} />;
+  return <div><LayerField selected={selected} layers={layers} /><SingleProps el={el} /></div>;
+}
+
+function LayerField({ selected, layers }: { selected: OverlayElement[]; layers: { id: string; name: string }[] }) {
+  const layerId = selected.every((el) => el.layerId === selected[0].layerId) ? selected[0].layerId : "";
+  return <label className="field">Warstwa
+    <select value={layerId} onChange={(e) => commitMoveElementsToLayer(selected.map((el) => el.id), e.target.value)}>
+      {!layerId && <option value="" disabled>Różne warstwy</option>}
+      {layers.map((layer) => <option key={layer.id} value={layer.id}>{layer.name}</option>)}
+    </select>
+  </label>;
 }
 
 function SingleProps({ el }: { el: OverlayElement }) {

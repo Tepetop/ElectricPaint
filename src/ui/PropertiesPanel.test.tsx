@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { isSymbol } from "../domain/types";
-import { getEditorState, placeAt, resetEditorForTests, setPendingSymbol } from "../state/editorStore";
+import { commitAddLayer, getEditorState, placeAt, resetEditorForTests, selectIds, setPendingSymbol } from "../state/editorStore";
 import { PropertiesPanel } from "./PropertiesPanel";
 
 function placedSymbol() {
@@ -61,5 +61,20 @@ describe("PropertiesPanel rotation", () => {
     await user.type(screen.getByRole("textbox", { name: "Opis" }), "przy łóżku");
     const described = getEditorState().project.elements[0];
     expect(isSymbol(described) && described.description).toBe("przy łóżku");
+  });
+
+  it("przenosi wiele elementów między warstwami z panelu właściwości", async () => {
+    const user = userEvent.setup();
+    placedSymbol();
+    placeAt({ x: 80, y: 40 });
+    const ids = getEditorState().project.elements.map((el) => el.id);
+    commitAddLayer();
+    const target = getEditorState().activeLayerId;
+    selectIds(ids);
+    render(<PropertiesPanel />);
+    expect(screen.getByText("Zaznaczono 2 elementów.")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Warstwa" }), target);
+    expect(getEditorState().project.elements.every((el) => el.layerId === target)).toBe(true);
+    expect(screen.queryByRole("spinbutton", { name: "Obrót" })).not.toBeInTheDocument();
   });
 });
