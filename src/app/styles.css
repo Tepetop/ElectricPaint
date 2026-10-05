@@ -147,6 +147,7 @@ input, select, textarea {
   margin-bottom: 6px;
   background: var(--bg-3);
 }
+.group-item { cursor: pointer; }
 .layer-item.active { border-color: var(--accent); }
 .layer-item button, .group-item button { padding: 4px 7px; font-size: 12px; }
 .members { font-size: 12px; color: var(--muted); margin: 6px 0; }

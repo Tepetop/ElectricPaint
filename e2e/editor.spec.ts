@@ -13,8 +13,8 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
       assignments: project.elements.map((element) => names.get(element.layerId)),
     };
   })).toEqual({
-    layers: ["Gniazda", "Oświetlenie", "Przewody", "Inne"],
-    assignments: ["Oświetlenie", "Oświetlenie", "Gniazda", "Przewody"],
+    layers: ["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"],
+    assignments: ["Łączniki", "Oświetlenie", "Gniazda", "Przewody"],
   });
 
   await page.getByRole("button", { name: "Łącznik schodowy", exact: true }).click();
@@ -39,7 +39,7 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await expect(page.getByText("Legenda tras")).toBeVisible();
 
   await page.getByRole("button", { name: "Dodaj", exact: true }).click();
-  await expect(page.locator('input[value="Warstwa 5"]')).toBeVisible();
+  await expect(page.locator('input[value="Warstwa 6"]')).toBeVisible();
 
   const downloadPng = page.waitForEvent("download");
   await page.getByRole("button", { name: "Eksport PNG" }).click();

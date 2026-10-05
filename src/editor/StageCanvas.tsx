@@ -47,12 +47,11 @@ function intersects(a: Box, b: Box): boolean {
 export function StageCanvas() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
-  const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef(new Map<string, Konva.Node>());
   const dragOrigin = useRef<Map<string, Point>>(new Map());
   const space = useRef(false);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
-  const [imagesReady, setImagesReady] = useState(0);
+  const [, setImagesReady] = useState(0);
   const [marquee, setMarquee] = useState<Box | null>(null);
   const [panning, setPanning] = useState(false);
   const lastPointer = useRef<Point | null>(null);
@@ -127,17 +126,6 @@ export function StageCanvas() {
     window.addEventListener("mouseup", onUp);
     return () => window.removeEventListener("mouseup", onUp);
   }, []);
-
-  useEffect(() => {
-    const tr = trRef.current;
-    if (!tr) return;
-    const nodes = selectedIds
-      .filter((id) => !locked.has(project.elements.find((el) => el.id === id)?.layerId ?? ""))
-      .map((id) => nodeRefs.current.get(id))
-      .filter((node): node is Konva.Node => Boolean(node) && node!.getAttr("epType") !== "cable");
-    tr.nodes(nodes);
-    tr.getLayer()?.batchDraw();
-  }, [selectedIds, project.elements, locked, imagesReady]);
 
   const visible = project.elements.filter((el) => !hidden.has(el.layerId));
   const viewport = useEditor((s) => s.viewport);
@@ -469,13 +457,14 @@ export function StageCanvas() {
             {marquee && (
               <Rect x={marquee.x} y={marquee.y} width={marquee.width} height={marquee.height} stroke="#3b82f6" dash={[4, 4]} fill="#3b82f622" />
             )}
-            <Transformer
-              ref={trRef}
-              rotateEnabled
-              rotationSnaps={[0, 90, 180, 270]}
-              rotationSnapTolerance={46}
-              boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
-            />
+            {selectedIds
+              .filter((id) => {
+                const el = project.elements.find((item) => item.id === id);
+                return Boolean(el && !isCable(el) && !locked.has(el.layerId));
+              })
+              .map((id) => (
+                <SelectionBox key={id} nodeId={id} getNode={(nodeId) => nodeRefs.current.get(nodeId)} />
+              ))}
           </Layer>
         </Stage>
       </div>
@@ -486,6 +475,32 @@ export function StageCanvas() {
         </div>
       )}
     </div>
+  );
+}
+
+function SelectionBox({
+  nodeId,
+  getNode,
+}: {
+  nodeId: string;
+  getNode: (id: string) => Konva.Node | undefined;
+}) {
+  const ref = useRef<Konva.Transformer>(null);
+  useEffect(() => {
+    const tr = ref.current;
+    if (!tr) return;
+    const node = getNode(nodeId);
+    tr.nodes(node ? [node] : []);
+    tr.getLayer()?.batchDraw();
+  });
+  return (
+    <Transformer
+      ref={ref}
+      rotateEnabled
+      rotationSnaps={[0, 90, 180, 270]}
+      rotationSnapTolerance={46}
+      boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
+    />
   );
 }
 

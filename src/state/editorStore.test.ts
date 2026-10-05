@@ -303,10 +303,10 @@ describe("automatic layers", () => {
     return layer.id;
   }
 
-  it("creates four named layers on each new drawing", () => {
-    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Przewody", "Inne"]);
+  it("creates five named layers on each new drawing", () => {
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
     newProject();
-    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Przewody", "Inne"]);
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
   });
 
   it("routes symbols, cables and text independently of the active layer", () => {
@@ -316,7 +316,7 @@ describe("automatic layers", () => {
       placeAt({ x: 10, y: 10 });
     }
     expect(getEditorState().project.elements.map((element) => element.layerId)).toEqual([
-      layerId("Gniazda"), layerId("Oświetlenie"), layerId("Oświetlenie"), layerId("Inne"),
+      layerId("Gniazda"), layerId("Łączniki"), layerId("Oświetlenie"), layerId("Inne"),
     ]);
     setTool("cable");
     startCableSegment({ x: 0, y: 0 });
@@ -329,16 +329,16 @@ describe("automatic layers", () => {
   });
 
   it("falls back to the active layer after renaming, then routes by the restored name", () => {
-    const lightingId = layerId("Oświetlenie");
+    const switchesId = layerId("Łączniki");
     const socketsId = layerId("Gniazda");
     setActiveLayer(socketsId);
-    commitUpdateLayer(lightingId, { name: "Światło" });
+    commitUpdateLayer(switchesId, { name: "Łączniki światła" });
     setPendingSymbol("switch-single");
     placeAt({ x: 0, y: 0 });
     expect(getEditorState().project.elements[0].layerId).toBe(socketsId);
-    commitUpdateLayer(lightingId, { name: "Oświetlenie" });
+    commitUpdateLayer(switchesId, { name: "Łączniki" });
     placeAt({ x: 20, y: 0 });
-    expect(getEditorState().project.elements[1].layerId).toBe(lightingId);
+    expect(getEditorState().project.elements[1].layerId).toBe(switchesId);
   });
 
   it("falls back after removing the cable layer and respects target visibility and locks", () => {

@@ -1,4 +1,5 @@
-import { isSymbol } from "../domain/types";
+import { useState } from "react";
+import { isSymbol, type ControlGroup } from "../domain/types";
 import {
   commitAddGroup,
   commitApplyGroupLabels,
@@ -11,10 +12,17 @@ import {
   useEditor,
 } from "../state/editorStore";
 
+function selectGroupSymbols(group: ControlGroup) {
+  const ids = [...group.switchIds, ...group.luminaireIds];
+  if (ids.length === 0) return;
+  selectIds(ids);
+}
+
 export function GroupsPanel() {
   const groups = useEditor((s) => s.project.groups);
   const elements = useEditor((s) => s.project.elements);
   const selectedIds = useEditor((s) => s.selectedIds);
+  const [groupsHidden, setGroupsHidden] = useState(false);
   const labelOf = (id: string) => {
     const el = elements.find((item) => item.id === id);
     return el && isSymbol(el) ? el.label : id.slice(0, 6);
@@ -27,17 +35,35 @@ export function GroupsPanel() {
         <button type="button" onClick={commitAddGroup}>Nowa grupa</button>
       </div>
       {groups.length > 0 && <div className="row" style={{ marginBottom: 8 }}>
-        <button type="button" onClick={() => commitSetAllGroupsCollapsed(true)}>Zwiń wszystkie</button>
-        <button type="button" onClick={() => commitSetAllGroupsCollapsed(false)}>Rozwiń wszystkie</button>
+        {groupsHidden ? (
+          <button type="button" onClick={() => setGroupsHidden(false)}>Pokaż grupy</button>
+        ) : (
+          <>
+            <button type="button" onClick={() => commitSetAllGroupsCollapsed(true)}>Zwiń wszystkie</button>
+            <button type="button" onClick={() => commitSetAllGroupsCollapsed(false)}>Rozwiń wszystkie</button>
+            <button type="button" onClick={() => setGroupsHidden(true)}>Schowaj grupy</button>
+          </>
+        )}
       </div>}
+      {groupsHidden && groups.length > 0 && (
+        <p className="legend">Grupy są schowane.</p>
+      )}
       {groups.length === 0 && (
         <p className="legend">Utwórz grupę, dodaj łączniki i oprawy, nadaj oznaczenie i zatwierdź, aby wpisać nazwy na schemacie.</p>
       )}
-      {groups.map((group) => {
+      {!groupsHidden && groups.map((group) => {
         const collapsed = Boolean(group.collapsed);
         const canApply = group.designation.trim().length > 0 && (group.switchIds.length > 0 || group.luminaireIds.length > 0);
         return (
-          <div className="group-item" key={group.id}>
+          <div
+            className="group-item"
+            key={group.id}
+            onClick={(event) => {
+              const target = event.target as HTMLElement;
+              if (target.closest("button, input")) return;
+              selectGroupSymbols(group);
+            }}
+          >
             <div className="row" style={{ marginBottom: collapsed ? 0 : 8 }}>
               <button
                 type="button"
@@ -46,7 +72,8 @@ export function GroupsPanel() {
               >
                 {collapsed ? "▸" : "▾"}
               </button>
-              <label className="field" style={{ flex: 1, marginBottom: 0 }}>Oznaczenie
+              <button type="button" onClick={() => selectGroupSymbols(group)}>Pokaż symbole</button>
+              <label className="field" style={{ flex: 1, marginBottom: 0, minWidth: 0 }}>Oznaczenie
                 <input value={group.designation} onChange={(e) => commitUpdateGroup(group.id, { designation: e.target.value })} />
               </label>
             </div>

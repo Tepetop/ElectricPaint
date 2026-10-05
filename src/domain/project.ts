@@ -2,7 +2,7 @@ import { createId } from "./ids";
 import { symbolRole } from "./numbering";
 import { SCHEMA_VERSION, type Layer, type Project, type SymbolKind } from "./types";
 
-export const DEFAULT_LAYER_NAMES = ["Gniazda", "Oświetlenie", "Przewody", "Inne"] as const;
+export const DEFAULT_LAYER_NAMES = ["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"] as const;
 
 export function createDefaultLayer(name = "Warstwa 1"): Layer {
   return { id: createId(), name, visible: true, locked: false };
@@ -31,7 +31,11 @@ export function layerIdByName(project: Project, name: string, fallbackId: string
 
 export function defaultSymbolLayerId(project: Project, kind: SymbolKind, fallbackId: string): string {
   const role = symbolRole(kind);
-  const name = role === "socket" ? "Gniazda" : role === "other" ? "Inne" : "Oświetlenie";
+  const name =
+    role === "socket" ? "Gniazda" :
+    role === "switch" ? "Łączniki" :
+    role === "luminaire" ? "Oświetlenie" :
+    "Inne";
   return layerIdByName(project, name, fallbackId);
 }
 

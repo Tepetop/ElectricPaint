@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   commitAddLayer,
   commitDeleteLayer,
@@ -11,6 +12,7 @@ export function LayersPanel() {
   const layers = useEditor((s) => s.project.layers);
   const activeLayerId = useEditor((s) => s.activeLayerId);
   const elements = useEditor((s) => s.project.elements);
+  const [layersHidden, setLayersHidden] = useState(false);
 
   function remove(layerId: string) {
     if (layers.length <= 1) return;
@@ -35,7 +37,15 @@ export function LayersPanel() {
         <strong>Warstwy</strong>
         <button type="button" onClick={commitAddLayer}>Dodaj</button>
       </div>
-      {layers.map((layer, index) => (
+      <div className="row" style={{ marginBottom: 8 }}>
+        {layersHidden ? (
+          <button type="button" onClick={() => setLayersHidden(false)}>Pokaż warstwy</button>
+        ) : (
+          <button type="button" onClick={() => setLayersHidden(true)}>Schowaj warstwy</button>
+        )}
+      </div>
+      {layersHidden && <p className="legend">Warstwy są schowane.</p>}
+      {!layersHidden && layers.map((layer, index) => (
         <div key={layer.id} className={`layer-item ${layer.id === activeLayerId ? "active" : ""}`}>
           <div className="row">
             <button type="button" className={layer.id === activeLayerId ? "active" : ""} onClick={() => setActiveLayer(layer.id)}>
