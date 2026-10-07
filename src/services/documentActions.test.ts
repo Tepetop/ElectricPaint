@@ -3,7 +3,8 @@ import { inspectPdf, rasterizePdfPage } from "./background";
 import { clearAutosave, readAutosave, writeAutosave } from "./autosave";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { isTauri, saveBytesWithDialog } from "./desktop";
-import { bindProjectHandle, importBackgroundFile, openProjectFile, persistAutosave, restoreAutosave, saveProject } from "./documentActions";
+import { exportPdfBytes } from "../editor/exportDoc";
+import { bindProjectHandle, exportCurrentPdf, importBackgroundFile, openProjectFile, persistAutosave, restoreAutosave, saveProject } from "./documentActions";
 import { packProject } from "./projectFiles";
 import { getEditorState, getTabState, newProject, placeAt, resetEditorForTests, setPendingSymbol, switchTab } from "../state/editorStore";
 import { createEmptyProject } from "../domain/project";
@@ -28,7 +29,6 @@ vi.mock("./background", () => ({
 }));
 vi.mock("../editor/exportDoc", () => ({
   exportPdfBytes: vi.fn(),
-  exportPngBytes: vi.fn(),
 }));
 
 afterEach(() => {
@@ -139,6 +139,31 @@ describe("document actions with tabs", () => {
     expect(saveBytesWithDialog).not.toHaveBeenCalled();
     expect(getEditorState().dirty).toBe(false);
     expect(getEditorState().filePath).toBe("dom.epaint");
+  });
+
+  it("eksport PDF używa nazwy zapisanego pliku projektu", async () => {
+    vi.mocked(saveBytesWithDialog).mockResolvedValueOnce("/rzuty/nazwa_projektu.epaint");
+    vi.mocked(exportPdfBytes).mockResolvedValueOnce(new Uint8Array([1, 2, 3]));
+    await saveProject(true);
+    expect(getEditorState().project.name).not.toBe("nazwa_projektu");
+
+    await exportCurrentPdf();
+    expect(saveBytesWithDialog).toHaveBeenLastCalledWith(
+      "nazwa_projektu.pdf",
+      new Uint8Array([1, 2, 3]),
+      [{ name: "PDF", extensions: ["pdf"] }],
+    );
+  });
+
+  it("eksport PDF niezapisanego projektu używa nazwy projektu", async () => {
+    const name = getEditorState().project.name;
+    vi.mocked(exportPdfBytes).mockResolvedValueOnce(new Uint8Array([1]));
+    await exportCurrentPdf();
+    expect(saveBytesWithDialog).toHaveBeenCalledWith(
+      `${name}.pdf`,
+      new Uint8Array([1]),
+      [{ name: "PDF", extensions: ["pdf"] }],
+    );
   });
 
   it("odczytuje dawny autosave pojedynczego rzutu", async () => {

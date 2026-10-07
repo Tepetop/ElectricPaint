@@ -43,10 +43,7 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await page.getByRole("button", { name: "Dodaj", exact: true }).click();
   await expect(page.locator('input[value="Warstwa 6"]')).toBeVisible();
 
-  const downloadPng = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Eksport PNG" }).click();
-  const png = await downloadPng;
-  expect(png.suggestedFilename()).toMatch(/\.png$/);
+  await expect(page.getByRole("button", { name: "Eksport PNG" })).toHaveCount(0);
 
   const downloadProject = page.waitForEvent("download");
   await page.getByRole("button", { name: "Zapisz", exact: true }).click();

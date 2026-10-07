@@ -5,7 +5,6 @@ import {
   bindProjectHandle,
   checkAutosave,
   exportCurrentPdf,
-  exportCurrentPng,
   forgetProjectHandle,
   importBackgroundFile,
   loadDemoProject,
@@ -216,7 +215,6 @@ export function App() {
         onSaveAs={() => void saveProject(true)}
         onImport={() => importRef.current?.click()}
         onDemo={loadDemoProject}
-        onExportPng={() => void exportCurrentPng()}
         onExportPdf={() => void exportCurrentPdf()}
       />
       <div className="tab-bar" role="tablist" aria-label="Otwarte rzuty">

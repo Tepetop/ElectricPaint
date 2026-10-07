@@ -154,16 +154,6 @@ export async function exportPngDataUrl(
   return url;
 }
 
-export async function exportPngBytes(
-  project: Project,
-  backgroundDataUrl: string | null,
-  pixelRatio = 2,
-): Promise<Uint8Array> {
-  const url = await exportPngDataUrl(project, backgroundDataUrl, pixelRatio);
-  const res = await fetch(url);
-  return new Uint8Array(await res.arrayBuffer());
-}
-
 export async function exportPdfBytes(
   project: Project,
   backgroundDataUrl: string | null,

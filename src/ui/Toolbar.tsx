@@ -15,7 +15,6 @@ type Props = {
   onSaveAs: () => void;
   onImport: () => void;
   onDemo: () => void;
-  onExportPng: () => void;
   onExportPdf: () => void;
 };
 
@@ -55,7 +54,6 @@ export function Toolbar(props: Props) {
       </div>
       <div className="sep" />
       <div className="group">
-        <button type="button" onClick={props.onExportPng}>Eksport PNG</button>
         <button type="button" onClick={props.onExportPdf}>Eksport PDF</button>
       </div>
       <span className={dirty ? "dirty" : ""}>{dirty ? "Niezapisane" : filePath || "Nowy projekt"}</span>
