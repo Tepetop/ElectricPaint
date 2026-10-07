@@ -89,3 +89,41 @@ test("zakładki, ponowne numerowanie grup i dopasowanie widoku", async ({ page }
   });
   expect(fit.actual).toBeCloseTo(fit.expected, 4);
 });
+
+test("wybór wielu symboli i wspólna zmiana warstwy", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.__ep!.setPendingSymbol("switch-single");
+    window.__ep!.placeAt({ x: 100, y: 100 });
+    window.__ep!.placeAt({ x: 240, y: 100 });
+  });
+  await page.getByRole("button", { name: "Wybór wielu" }).click();
+  await expect(page.getByRole("button", { name: "Wybór wielu" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Wyczyść zaznaczenie (1)" }).click();
+
+  async function clickSymbol(x: number) {
+    const canvas = await page.locator(".stage-host canvas").first().boundingBox();
+    if (!canvas) throw new Error("Brak płótna");
+    const { zoom, pan } = await page.evaluate(() => window.__ep!.getEditorState());
+    await page.mouse.click(canvas.x + pan.x + (x + 24) * zoom, canvas.y + pan.y + 124 * zoom);
+  }
+
+  await clickSymbol(100);
+  await clickSymbol(240);
+  await expect(page.getByText("Zaznaczono 2 elementów.")).toBeVisible();
+  await clickSymbol(100);
+  expect(await page.evaluate(() => window.__ep!.getEditorState().selectedIds.length)).toBe(1);
+  await clickSymbol(100);
+  await page.getByRole("combobox", { name: "Warstwa" }).selectOption({ label: "Gniazda" });
+  expect(await page.evaluate(() => {
+    const project = window.__ep!.getEditorState().project;
+    const target = project.layers.find((layer) => layer.name === "Gniazda")?.id;
+    return project.elements.map((element) => element.layerId === target);
+  })).toEqual([true, true]);
+  await page.getByRole("button", { name: "Cofnij" }).click();
+  expect(await page.evaluate(() => {
+    const project = window.__ep!.getEditorState().project;
+    const original = project.layers.find((layer) => layer.name === "Łączniki")?.id;
+    return project.elements.every((element) => element.layerId === original);
+  })).toBe(true);
+});

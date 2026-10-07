@@ -45,6 +45,7 @@ export type EditorState = {
   filePath: string | null;
   dirty: boolean;
   selectedIds: string[];
+  multiSelect: boolean;
   activeLayerId: string;
   tool: Tool;
   pendingSymbolKind: SymbolKind | null;
@@ -86,6 +87,7 @@ function emptyState(): EditorState {
     filePath: null,
     dirty: false,
     selectedIds: [],
+    multiSelect: false,
     activeLayerId: project.layers[0].id,
     tool: "select",
     pendingSymbolKind: null,
@@ -328,9 +330,10 @@ export function setViewport(width: number, height: number) {
   if (state.needsInitialFit) fitView();
 }
 
-export function setTool(tool: Tool) {
+export function setTool(tool: Tool, multiSelect = tool === "select" && state.multiSelect) {
   setState({
     tool,
+    multiSelect,
     pendingSymbolKind: tool === "symbol" ? state.pendingSymbolKind : null,
     cableDraft: tool === "cable" ? state.cableDraft : [],
     scaleDraft: tool === "scale" ? state.scaleDraft : [],
@@ -339,7 +342,11 @@ export function setTool(tool: Tool) {
 }
 
 export function setPendingSymbol(kind: SymbolKind) {
-  setState({ tool: "symbol", pendingSymbolKind: kind });
+  setState({ tool: "symbol", pendingSymbolKind: kind, multiSelect: false });
+}
+
+export function setMultiSelect(enabled: boolean) {
+  setTool("select", enabled);
 }
 
 export function setZoom(zoom: number) {
@@ -373,6 +380,14 @@ export function selectIds(ids: string[], additive = false) {
   });
   const selectedIds = additive ? [...new Set([...state.selectedIds, ...editableIds])] : editableIds;
   setState({ selectedIds });
+}
+
+export function toggleSelection(id: string) {
+  if (state.selectedIds.includes(id)) {
+    setState({ selectedIds: state.selectedIds.filter((selectedId) => selectedId !== id) });
+  } else {
+    selectIds([id], true);
+  }
 }
 
 export function clearSelection() {

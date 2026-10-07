@@ -10,6 +10,7 @@ import {
   placeAt,
   redo,
   selectIds,
+  setMultiSelect,
   setPendingSymbol,
   setTool,
   undo,
@@ -64,7 +65,7 @@ export function Editor() {
         cancelScale();
         return;
       }
-      if (!ctrl && e.key.toLowerCase() === "v") setTool("select");
+      if (!ctrl && e.key.toLowerCase() === "v") setMultiSelect(false);
       if (!ctrl && e.key.toLowerCase() === "h") setTool("pan");
       if (!ctrl && e.key.toLowerCase() === "c") setTool("cable");
       if (!ctrl && e.key.toLowerCase() === "t") setTool("text");
