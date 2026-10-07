@@ -20,6 +20,7 @@ import {
   setPan,
   setViewport,
   setZoom,
+  toggleSelection,
   useEditor,
 } from "../state/editorStore";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
@@ -64,6 +65,7 @@ export function StageCanvas() {
   const pan = useEditor((s) => s.pan);
   const tool = useEditor((s) => s.tool);
   const selectedIds = useEditor((s) => s.selectedIds);
+  const multiSelect = useEditor((s) => s.multiSelect);
   const showGrid = useEditor((s) => s.showGrid);
   const snap = useEditor((s) => s.snap);
   const cableDraft = useEditor((s) => s.cableDraft);
@@ -168,6 +170,11 @@ export function StageCanvas() {
     commitCableSegment();
   }
 
+  function selectElement(id: string, shiftKey: boolean) {
+    if (multiSelect) toggleSelection(id);
+    else selectIds([id], shiftKey);
+  }
+
   function onMouseDown(evt: Konva.KonvaEventObject<MouseEvent>) {
     const isPan = tool === "pan" || space.current || evt.evt.button === 1;
     if (isPan) {
@@ -197,7 +204,7 @@ export function StageCanvas() {
       const start = toCanvas(evt);
       marqueeStart.current = start;
       setMarquee({ x: start.x, y: start.y, width: 0, height: 0 });
-      if (!evt.evt.shiftKey) clearSelection();
+      if (!evt.evt.shiftKey && !multiSelect) clearSelection();
       return;
     }
     placeAt(toCanvas(evt));
@@ -253,7 +260,7 @@ export function StageCanvas() {
         const hits = visible
           .filter((el) => !locked.has(el.layerId) && intersects(box, elementBox(el)))
           .map((el) => el.id);
-        selectIds(hits, evt.evt.shiftKey);
+        selectIds(hits, evt.evt.shiftKey || multiSelect);
       }
       marqueeStart.current = null;
       setMarquee(null);
@@ -312,6 +319,7 @@ export function StageCanvas() {
                     locked={isLocked}
                     tool={tool}
                     snap={snap}
+                    onSelect={(shiftKey) => selectElement(el.id, shiftKey)}
                     onRef={(node) => {
                       if (node) nodeRefs.current.set(el.id, node);
                       else nodeRefs.current.delete(el.id);
@@ -337,7 +345,7 @@ export function StageCanvas() {
                     onClick={(e) => {
                       e.cancelBubble = true;
                       if (!canMove) return;
-                      selectIds([el.id], e.evt.shiftKey);
+                      selectElement(el.id, e.evt.shiftKey);
                     }}
                     onDragStart={() => {
                       dragOrigin.current.set(el.id, { x: el.x, y: el.y });
@@ -381,7 +389,7 @@ export function StageCanvas() {
                     onClick={(e) => {
                       e.cancelBubble = true;
                       if (isLocked || tool !== "select") return;
-                      selectIds([el.id], e.evt.shiftKey);
+                      selectElement(el.id, e.evt.shiftKey);
                     }}
                     onDragEnd={(e) => {
                       const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
@@ -414,7 +422,7 @@ export function StageCanvas() {
                   onClick={(e) => {
                     e.cancelBubble = true;
                     if (!canMoveLabel) return;
-                    selectIds([el.id], e.evt.shiftKey);
+                    selectElement(el.id, e.evt.shiftKey);
                   }}
                   onDragEnd={(e) => {
                     const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
@@ -542,6 +550,7 @@ function CableShape({
   locked,
   tool,
   snap,
+  onSelect,
   onRef,
 }: {
   el: Extract<OverlayElement, { type: "cable" }>;
@@ -549,6 +558,7 @@ function CableShape({
   locked: boolean;
   tool: string;
   snap: boolean;
+  onSelect: (shiftKey: boolean) => void;
   onRef: (node: Konva.Line | null) => void;
 }) {
   return (
@@ -568,7 +578,7 @@ function CableShape({
         onClick={(e) => {
           e.cancelBubble = true;
           if (locked || tool !== "select") return;
-          selectIds([el.id], e.evt.shiftKey);
+          onSelect(e.evt.shiftKey);
         }}
       />
       {el.name && el.points[0] && (

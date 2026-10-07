@@ -6,7 +6,9 @@ import {
   commitApplySymbolScale,
   commitScaleAllSymbols,
   commitScaleLength,
+  clearSelection,
   setCableStyle,
+  setMultiSelect,
   setPendingSymbol,
   setTool,
   useEditor,
@@ -23,6 +25,7 @@ export function SymbolPalette() {
   const defaultSymbolScale = useEditor((s) => s.project.defaultSymbolScale);
   const scaleReference = useEditor((s) => s.project.scaleReference);
   const selectedIds = useEditor((s) => s.selectedIds);
+  const multiSelect = useEditor((s) => s.multiSelect);
   const elements = useEditor((s) => s.project.elements);
   const [query, setQuery] = useState("");
 
@@ -46,12 +49,19 @@ export function SymbolPalette() {
     <aside className="left-panel">
       <h2 className="panel-title">Narzędzia</h2>
       <div className="tool-row">
-        <button type="button" className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}>Zaznacz</button>
+        <button type="button" className={tool === "select" && !multiSelect ? "active" : ""} onClick={() => setMultiSelect(false)}>Zaznacz</button>
+        <button type="button" className={multiSelect ? "active" : ""} aria-pressed={multiSelect} onClick={() => setMultiSelect(!multiSelect)}>Wybór wielu</button>
         <button type="button" className={tool === "pan" ? "active" : ""} onClick={() => setTool("pan")}>Przesuwanie</button>
         <button type="button" className={tool === "cable" ? "active" : ""} onClick={() => setTool("cable")}>Przewód</button>
         <button type="button" className={tool === "scale" ? "active" : ""} onClick={() => setTool("scale")}>Skala rzutu</button>
         <button type="button" className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}>Tekst</button>
       </div>
+      {tool === "select" && (
+        <div className="section">
+          <p className="legend">{multiSelect ? "Klikaj symbole, aby dodawać je do zaznaczenia lub usuwać z niego. Zaznaczone elementy przeniesiesz razem w polu Warstwa po prawej." : "Wybierz wiele symboli przyciskiem Wybór wielu, klawiszem Shift albo przeciągając ramkę na rzucie."}</p>
+          {selectedIds.length > 0 && <button type="button" onClick={clearSelection}>Wyczyść zaznaczenie ({selectedIds.length})</button>}
+        </div>
+      )}
       <div className="section">
         <label className="field">Skaluj symbol
           <input
