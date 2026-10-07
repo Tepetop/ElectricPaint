@@ -6,6 +6,32 @@ import { isCable, isSymbol, isText } from "../domain/types";
 import { SYMBOL_SIZE, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
 import { collectSymbolList } from "../domain/symbolList";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
+import regularFontUrl from "../assets/fonts/LiberationSans-Regular.ttf?url";
+import boldFontUrl from "../assets/fonts/LiberationSans-Bold.ttf?url";
+
+const PDF_FONT = "LiberationSans";
+
+async function loadPdfFont(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Nie można wczytać czcionki PDF: ${url}`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+let pdfFonts: Promise<[string, string]> | undefined;
+
+async function registerPdfFonts(pdf: jsPDF) {
+  pdfFonts ??= Promise.all([loadPdfFont(regularFontUrl), loadPdfFont(boldFontUrl)]);
+  const [regular, bold] = await pdfFonts;
+  pdf.addFileToVFS("LiberationSans-Regular.ttf", regular);
+  pdf.addFileToVFS("LiberationSans-Bold.ttf", bold);
+  pdf.addFont("LiberationSans-Regular.ttf", PDF_FONT, "normal");
+  pdf.addFont("LiberationSans-Bold.ttf", PDF_FONT, "bold");
+}
 
 function visibleElements(project: Project): OverlayElement[] {
   const hidden = new Set(project.layers.filter((l) => !l.visible).map((l) => l.id));
@@ -148,6 +174,7 @@ export async function exportPdfBytes(
   const orientation = w >= h ? "landscape" : "portrait";
   const pdf = new jsPDF({ orientation, unit: "px", format: [w, h], hotfixes: ["px_scaling"] });
   pdf.addImage(url, "PNG", 0, 0, w, h);
+  await registerPdfFonts(pdf);
   addSymbolListPages(pdf, project);
   const output = pdf.output("arraybuffer");
   return new Uint8Array(output);
@@ -166,40 +193,81 @@ function addSymbolListPages(pdf: jsPDF, project: Project) {
   pdf.addPage("a4", "portrait");
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 40;
-  const cols = { label: margin, type: margin + 90, groups: margin + 250, desc: margin + 340 };
-  const descWidth = Math.max(80, pageW - cols.desc - margin);
+  const margin = 36;
+  const tableWidth = pageW - margin * 2;
+  const widths = [82, 188, 72, tableWidth - 342];
+  const starts = [margin, margin + widths[0], margin + widths[0] + widths[1], margin + widths[0] + widths[1] + widths[2]];
+  const padding = 7;
+  const lineHeight = 12;
+  const headerHeight = 27;
+  const bottom = pageH - margin;
 
-  const drawHeader = (y: number) => {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text("Lista symboli", margin, y);
-    pdf.setFontSize(10);
-    pdf.text("Oznaczenie", cols.label, y + 24);
-    pdf.text("Typ", cols.type, y + 24);
-    pdf.text("Grupy", cols.groups, y + 24);
-    pdf.text("Opis", cols.desc, y + 24);
-    pdf.setFont("helvetica", "normal");
-    return y + 38;
+  const drawGrid = (top: number, height: number) => {
+    pdf.setDrawColor(185, 196, 207);
+    pdf.setLineWidth(0.5);
+    pdf.rect(margin, top, tableWidth, height);
+    for (let column = 1; column < starts.length; column++) {
+      pdf.line(starts[column], top, starts[column], top + height);
+    }
   };
 
-  let y = drawHeader(margin);
+  const drawHeader = () => {
+    pdf.setFont(PDF_FONT, "bold");
+    pdf.setFontSize(16);
+    pdf.setTextColor(25, 39, 52);
+    pdf.text("Lista symboli", margin, 52);
+    const top = 69;
+    pdf.setFillColor(42, 59, 75);
+    pdf.rect(margin, top, tableWidth, headerHeight, "F");
+    drawGrid(top, headerHeight);
+    pdf.setFontSize(9);
+    pdf.setTextColor(255, 255, 255);
+    ["Oznaczenie", "Typ", "Grupy", "Opis"].forEach((heading, column) => {
+      pdf.text(heading, starts[column] + padding, top + 18);
+    });
+    pdf.setFont(PDF_FONT, "normal");
+    pdf.setTextColor(25, 39, 52);
+    return top + headerHeight;
+  };
+
+  let y = drawHeader();
   if (rows.length === 0) {
-    pdf.text("Brak symboli na widocznych warstwach.", margin, y);
+    pdf.setFontSize(9);
+    pdf.text("Brak symboli na widocznych warstwach.", margin + padding, y + 17);
+    drawGrid(y, 28);
     return;
   }
-  for (const row of rows) {
-    const descLines = pdf.splitTextToSize(row.description || "-", descWidth);
-    const typeLines = pdf.splitTextToSize(row.typeName, cols.groups - cols.type - 8);
-    const lineH = Math.max(16, Math.max(descLines.length, typeLines.length) * 12);
-    if (y + lineH > pageH - margin) {
-      pdf.addPage("a4", "portrait");
-      y = drawHeader(margin);
+  pdf.setFontSize(9);
+  rows.forEach((row, rowIndex) => {
+    const values = [row.label || "-", row.typeName || "-", row.groups || "-", row.description || "-"];
+    const lines = values.map((value, column) =>
+      pdf.splitTextToSize(value, widths[column] - padding * 2) as string[],
+    );
+    const lineCount = Math.max(...lines.map((cell) => cell.length));
+    let firstLine = 0;
+    while (firstLine < lineCount) {
+      const remaining = lineCount - firstLine;
+      const fullHeight = Math.max(27, remaining * lineHeight + 12);
+      if (y + fullHeight > bottom && y > 96) {
+        pdf.addPage("a4", "portrait");
+        y = drawHeader();
+        pdf.setFontSize(9);
+      }
+      const availableLines = Math.max(1, Math.floor((bottom - y - 12) / lineHeight));
+      const count = Math.min(remaining, availableLines);
+      const height = Math.max(27, count * lineHeight + 12);
+      if (rowIndex % 2 === 1) {
+        pdf.setFillColor(246, 248, 250);
+        pdf.rect(margin, y, tableWidth, height, "F");
+      }
+      drawGrid(y, height);
+      lines.forEach((cell, column) => {
+        cell.slice(firstLine, firstLine + count).forEach((line, index) => {
+          pdf.text(line, starts[column] + padding, y + 16 + index * lineHeight);
+        });
+      });
+      y += height;
+      firstLine += count;
     }
-    pdf.text(row.label || "-", cols.label, y);
-    pdf.text(typeLines, cols.type, y);
-    pdf.text(row.groups || "-", cols.groups, y);
-    pdf.text(descLines, cols.desc, y);
-    y += lineH;
-  }
+  });
 }

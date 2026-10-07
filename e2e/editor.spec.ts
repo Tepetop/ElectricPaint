@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await page.goto("/");
@@ -88,4 +90,35 @@ test("zakładki, ponowne numerowanie grup i dopasowanie widoku", async ({ page }
     return { actual: state.zoom, expected: Math.min(host.clientWidth / state.project.canvas.width, host.clientHeight / state.project.canvas.height) * 0.96 };
   });
   expect(fit.actual).toBeCloseTo(fit.expected, 4);
+});
+
+test("eksport PDF zachowuje polskie znaki i dzieli tabelę symboli na strony", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Przykład" }).click();
+  await page.getByRole("button", { name: "Gniazdo wtyczkowe podwójne", exact: true }).click();
+  await page.evaluate(() => {
+    for (let index = 0; index < 40; index++) {
+      window.__ep!.placeAt({ x: 100 + (index % 10) * 80, y: 100 + Math.floor(index / 10) * 70 });
+    }
+    window.__ep!.selectIds([window.__ep!.getEditorState().project.elements.at(-1)!.id]);
+  });
+  await page.getByRole("textbox", { name: "Opis" }).fill("Żółć, łącznik i oświetlenie przy wejściu do kuchni oraz salonu.");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Eksport PDF" }).click();
+  const download = await downloadPromise;
+  const pdf = await getDocument({ data: new Uint8Array(await readFile(await download.path()!)) }).promise;
+  expect(pdf.numPages).toBeGreaterThanOrEqual(3);
+
+  const pageTexts: string[] = [];
+  for (let number = 2; number <= pdf.numPages; number++) {
+    const text = await (await pdf.getPage(number)).getTextContent();
+    const pageText = text.items.map((item) => "str" in item ? item.str : "").join(" ");
+    expect(pageText).toContain("Lista symboli");
+    expect(pageText).toContain("Oznaczenie");
+    pageTexts.push(pageText);
+  }
+  expect(pageTexts.join(" ")).toContain("Łącznik jednobiegunowy");
+  expect(pageTexts.join(" ")).toContain("Żółć, łącznik i oświetlenie");
+  expect(pageTexts.at(-1)).toContain("G41");
 });
