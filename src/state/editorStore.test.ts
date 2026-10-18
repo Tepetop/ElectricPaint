@@ -17,6 +17,7 @@ import {
   commitCableSegment,
   duplicateSelected,
   finishCable,
+  insertCablePoint,
   getEditorState,
   getTabState,
   closeTab,
@@ -88,6 +89,63 @@ describe("editor history", () => {
     ]);
     expect(getEditorState().cableDraft).toEqual([]);
     expect(getEditorState().tool).toBe("cable");
+  });
+
+  it("kładzie punkty przewodu z dokładnością 1 px", () => {
+    setTool("cable");
+    startCableSegment({ x: 12.4, y: 7.6 });
+    previewCableSegment({ x: 40.4, y: 7.2 });
+    expect(getEditorState().cableDraft).toEqual([
+      { x: 12, y: 8 },
+      { x: 40, y: 7 },
+    ]);
+  });
+
+  it("dokłada punkt na zaznaczonym przewodzie i obsługuje cofanie", () => {
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 80, y: 0 });
+    finishCable();
+    const id = getEditorState().project.elements[0].id;
+    insertCablePoint(id, 0, { x: 40, y: 0 });
+    const cable = getEditorState().project.elements[0];
+    expect(isCable(cable)).toBe(true);
+    if (!isCable(cable)) return;
+    expect(cable.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 40, y: 0 },
+      { x: 80, y: 0 },
+    ]);
+    undo();
+    const undone = getEditorState().project.elements[0];
+    if (!isCable(undone)) return;
+    expect(undone.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+    ]);
+    redo();
+    const redone = getEditorState().project.elements[0];
+    if (!isCable(redone)) return;
+    expect(redone.points).toHaveLength(3);
+  });
+
+  it("układa drugi i trzeci przewód obok siebie zamiast na sobie", () => {
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 100, y: 0 });
+    finishCable();
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 100, y: 0 });
+    finishCable();
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 100, y: 0 });
+    finishCable();
+    const cables = getEditorState().project.elements.filter(isCable);
+    expect(cables).toHaveLength(3);
+    const ys = cables.map((cable) => cable.points[0].y).sort((a, b) => a - b);
+    expect(new Set(ys).size).toBe(3);
+    expect(ys[1] - ys[0]).toBeGreaterThanOrEqual(7);
+    expect(ys[2] - ys[1]).toBeGreaterThanOrEqual(7);
   });
 });
 
