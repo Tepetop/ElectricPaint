@@ -64,7 +64,20 @@ export function allocateGroupDesignation(project: Project): { designation: strin
   return { designation: `S${next}`, nextGroupSeq: next + 1 };
 }
 
-export function allocateCableName(project: Project): { name: string; nextCableSeq: number } {
-  const next = project.nextCableSeq || 1;
-  return { name: `Przewód ${next}`, nextCableSeq: next + 1 };
+const AUTO_CABLE_NAME = /^Przewód \d+$/;
+
+export function syncCableNumbers(project: Project): Project {
+  let count = 0;
+  let changed = false;
+  const elements = project.elements.map((el) => {
+    if (el.type !== "cable" || !AUTO_CABLE_NAME.test(el.name)) return el;
+    count += 1;
+    const name = `Przewód ${count}`;
+    if (el.name === name) return el;
+    changed = true;
+    return { ...el, name };
+  });
+  const nextCableSeq = count + 1;
+  if (!changed && project.nextCableSeq === nextCableSeq) return project;
+  return { ...project, elements: changed ? elements : project.elements, nextCableSeq };
 }

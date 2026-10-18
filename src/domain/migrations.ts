@@ -1,3 +1,4 @@
+import { syncCableNumbers } from "./numbering";
 import { createDefaultLayer } from "./project";
 import { SCHEMA_VERSION, isSymbol, type ControlGroup, type OverlayElement, type Project } from "./types";
 
@@ -28,7 +29,7 @@ export function migrateProject(raw: unknown): Project {
     collapsed: Boolean((group as ControlGroup).collapsed),
   }));
 
-  return {
+  return syncCableNumbers({
     schemaVersion: SCHEMA_VERSION,
     name: data.name || "Projekt",
     canvas: data.canvas ?? { width: 1600, height: 1000 },
@@ -41,5 +42,5 @@ export function migrateProject(raw: unknown): Project {
     nextCableSeq: data.nextCableSeq ?? 1,
     defaultSymbolScale: data.defaultSymbolScale ?? 1,
     scaleReference: data.scaleReference ?? null,
-  };
+  });
 }

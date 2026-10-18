@@ -1,5 +1,5 @@
 import { cloneData, createId } from "./ids";
-import { allocateCableName, allocateGroupDesignation, allocateLabel, symbolRole } from "./numbering";
+import { allocateGroupDesignation, allocateLabel, symbolRole, syncCableNumbers } from "./numbering";
 import { createDefaultLayer } from "./project";
 import type {
   CableRoute,
@@ -54,9 +54,6 @@ export function addCable(
     name?: string;
   },
 ): Project {
-  const { name, nextCableSeq } = input.name
-    ? { name: input.name, nextCableSeq: project.nextCableSeq }
-    : allocateCableName(project);
   const element: CableRoute = {
     type: "cable",
     id: createId(),
@@ -65,9 +62,9 @@ export function addCable(
     color: input.color ?? "#1d4ed8",
     width: input.width ?? 3,
     style: input.style ?? "solid",
-    name,
+    name: input.name ?? "Przewód 0",
   };
-  return { ...project, nextCableSeq, elements: [...project.elements, element] };
+  return syncCableNumbers({ ...project, elements: [...project.elements, element] });
 }
 
 export function addText(
@@ -90,7 +87,7 @@ export function addText(
 
 export function deleteElements(project: Project, ids: string[]): Project {
   const idSet = new Set(ids);
-  return {
+  return syncCableNumbers({
     ...project,
     elements: project.elements.filter((el) => !idSet.has(el.id)),
     groups: project.groups.map((group) => ({
@@ -98,7 +95,7 @@ export function deleteElements(project: Project, ids: string[]): Project {
       switchIds: group.switchIds.filter((id) => !idSet.has(id)),
       luminaireIds: group.luminaireIds.filter((id) => !idSet.has(id)),
     })),
-  };
+  });
 }
 
 export function duplicateElements(project: Project, ids: string[], offset = 24): Project {
