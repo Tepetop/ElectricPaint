@@ -6,11 +6,7 @@ import {
   labelOffsetFromWorld,
   lengthInMeters,
   metersToMm,
-  minCableSeparation,
   mmToMeters,
-  resolveCableDraftPoint,
-  resolveEditedCablePoints,
-  resolveSegmentParallelOffset,
   segmentMidpoint,
   snapCablePoint,
   symbolLabelPosition,
@@ -97,66 +93,5 @@ describe("geometria odcinków przewodu", () => {
     expect(hit?.index).toBe(1);
     expect(hit?.point).toEqual({ x: 10, y: 5 });
     expect(hit?.distance).toBe(2);
-  });
-});
-
-describe("układanie wiązek przewodów", () => {
-  const width = 3;
-  const dMin = minCableSeparation(width, width);
-  const existing = [{ points: [{ x: 0, y: 0 }, { x: 100, y: 0 }], width }];
-
-  it("odsuwa przewód kładziony na istniejącym", () => {
-    const points = resolveCableDraftPoint([{ x: 0, y: 0 }], { x: 100, y: 0 }, width, existing);
-    expect(points[0].y).toBe(points[1].y);
-    expect(Math.abs(points[0].y)).toBe(dMin);
-    expect(points.map((p) => p.x)).toEqual([0, 100]);
-  });
-
-  it("układa trzeci przewód na kolejnym torze obok pary", () => {
-    const first = existing[0];
-    const second = { points: [{ x: 0, y: dMin }, { x: 100, y: dMin }], width };
-    const points = resolveCableDraftPoint([{ x: 0, y: 0 }], { x: 100, y: 0 }, width, [first, second]);
-    expect(points[0].y).toBe(points[1].y);
-    expect(Math.abs(points[0].y)).toBe(dMin);
-    expect(points[0].y).not.toBe(0);
-    expect(points[0].y).not.toBe(dMin);
-  });
-
-  it("pozwala przejść nad przewodem pod kątem prostym i 45 stopni", () => {
-    for (const candidate of [{ x: 50, y: 80 }, { x: 80, y: 80 }]) {
-      const points = resolveCableDraftPoint([{ x: 50, y: -20 }], candidate, width, existing);
-      expect(points).toEqual([{ x: 50, y: -20 }, snapCablePoint(candidate)]);
-    }
-    const crossed = resolveSegmentParallelOffset(
-      { x: 50, y: -40 },
-      { x: 50, y: 40 },
-      width,
-      [{ a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, width }],
-    );
-    expect(crossed.offsetApplied).toBe(false);
-  });
-
-  it("nie rusza styku końców bez nakładania wzdłużnego", () => {
-    const resolved = resolveSegmentParallelOffset(
-      { x: 100, y: 0 },
-      { x: 180, y: 0 },
-      width,
-      [{ a: { x: 0, y: 0 }, b: { x: 100, y: 0 }, width }],
-    );
-    expect(resolved.offsetApplied).toBe(false);
-  });
-
-  it("odsuwa przesuwany punkt istniejącego przewodu", () => {
-    const points = resolveEditedCablePoints(
-      [
-        { x: 0, y: 0 },
-        { x: 100, y: 0 },
-      ],
-      1,
-      width,
-      existing,
-    );
-    expect(points[0]).toEqual({ x: 0, y: 0 });
-    expect(Math.abs(points[1].y)).toBe(dMin);
   });
 });

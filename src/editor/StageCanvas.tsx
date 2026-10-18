@@ -1,8 +1,8 @@
 import Konva from "konva";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
-import { SYMBOL_SIZE, findClosestCableSegment, formatScaleLength, labelOffsetFromWorld, polylineToFlat, resolveEditedCablePoints, segmentMidpoint, snapCablePoint, snapPoint, symbolLabelPosition } from "../domain/geometry";
-import { GRID_SIZE, isCable, isSymbol, isText, type CableRoute, type OverlayElement, type Point } from "../domain/types";
+import { SYMBOL_SIZE, findClosestCableSegment, formatScaleLength, labelOffsetFromWorld, polylineToFlat, segmentMidpoint, snapCablePoint, snapPoint, symbolLabelPosition } from "../domain/geometry";
+import { GRID_SIZE, isCable, isSymbol, isText, type OverlayElement, type Point } from "../domain/types";
 import {
   canvasPointFromScreen,
   clearSelection,
@@ -318,7 +318,6 @@ export function StageCanvas() {
                     selected={selected}
                     locked={isLocked}
                     tool={tool}
-                    otherCables={visible.filter((item): item is CableRoute => isCable(item) && item.id !== el.id)}
                     onSelect={(shiftKey) => selectElement(el.id, shiftKey)}
                     onRef={(node) => {
                       if (node) nodeRefs.current.set(el.id, node);
@@ -549,7 +548,6 @@ function CableShape({
   selected,
   locked,
   tool,
-  otherCables,
   onSelect,
   onRef,
 }: {
@@ -557,7 +555,6 @@ function CableShape({
   selected: boolean;
   locked: boolean;
   tool: string;
-  otherCables: CableRoute[];
   onSelect: (shiftKey: boolean) => void;
   onRef: (node: Konva.Line | null) => void;
 }) {
@@ -616,20 +613,16 @@ function CableShape({
             draggable
             onDragMove={(e) => {
               dragged.current = true;
+              const pos = snapCablePoint({ x: e.target.x(), y: e.target.y() });
+              e.target.position(pos);
               const base = editPointsRef.current ?? el.points;
-              const resolved = resolveEditedCablePoints(
-                base.map((item, i) => (i === index ? { x: e.target.x(), y: e.target.y() } : item)),
-                index,
-                el.width,
-                otherCables,
-              );
-              e.target.position(resolved[index]);
-              editPointsRef.current = resolved;
-              setEditPoints(resolved);
+              const next = base.map((item, i) => (i === index ? pos : item));
+              editPointsRef.current = next;
+              setEditPoints(next);
             }}
             onDragEnd={() => {
               const next = editPointsRef.current;
-              if (next) commitCablePoints(el.id, next, index);
+              if (next) commitCablePoints(el.id, next);
               editPointsRef.current = null;
               setEditPoints(null);
             }}
@@ -651,10 +644,8 @@ function CableShape({
               onDragMove={(e) => {
                 dragged.current = true;
                 const candidate = snapCablePoint({ x: e.target.x(), y: e.target.y() });
-                const inserted = [...el.points.slice(0, index + 1), candidate, ...el.points.slice(index + 1)];
-                const resolved = resolveEditedCablePoints(inserted, index + 1, el.width, otherCables);
-                e.target.position(resolved[index + 1]);
-                previewLine(resolved);
+                e.target.position(candidate);
+                previewLine([...el.points.slice(0, index + 1), candidate, ...el.points.slice(index + 1)]);
               }}
               onDragEnd={(e) => {
                 insertCablePoint(el.id, index, snapCablePoint({ x: e.target.x(), y: e.target.y() }));

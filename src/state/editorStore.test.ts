@@ -128,25 +128,6 @@ describe("editor history", () => {
     if (!isCable(redone)) return;
     expect(redone.points).toHaveLength(3);
   });
-
-  it("układa drugi i trzeci przewód obok siebie zamiast na sobie", () => {
-    setTool("cable");
-    startCableSegment({ x: 0, y: 0 });
-    startCableSegment({ x: 100, y: 0 });
-    finishCable();
-    startCableSegment({ x: 0, y: 0 });
-    startCableSegment({ x: 100, y: 0 });
-    finishCable();
-    startCableSegment({ x: 0, y: 0 });
-    startCableSegment({ x: 100, y: 0 });
-    finishCable();
-    const cables = getEditorState().project.elements.filter(isCable);
-    expect(cables).toHaveLength(3);
-    const ys = cables.map((cable) => cable.points[0].y).sort((a, b) => a - b);
-    expect(new Set(ys).size).toBe(3);
-    expect(ys[1] - ys[0]).toBeGreaterThanOrEqual(7);
-    expect(ys[2] - ys[1]).toBeGreaterThanOrEqual(7);
-  });
 });
 
 describe("tabs", () => {
