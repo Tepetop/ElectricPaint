@@ -1,8 +1,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import { isSymbol } from "../domain/types";
-import { commitAddLayer, getEditorState, placeAt, resetEditorForTests, selectIds, setPendingSymbol } from "../state/editorStore";
+import { isCable, isSymbol } from "../domain/types";
+import { commitAddLayer, finishCable, getEditorState, placeAt, previewCableSegment, resetEditorForTests, selectIds, setPendingSymbol, setTool, startCableSegment } from "../state/editorStore";
 import { PropertiesPanel } from "./PropertiesPanel";
 
 function placedSymbol() {
@@ -61,6 +61,22 @@ describe("PropertiesPanel rotation", () => {
     await user.type(screen.getByRole("textbox", { name: "Opis" }), "przy łóżku");
     const described = getEditorState().project.elements[0];
     expect(isSymbol(described) && described.description).toBe("przy łóżku");
+  });
+
+  it("zapisuje opis przewodu", async () => {
+    const user = userEvent.setup();
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements[0];
+    if (!isCable(cable)) throw new Error("expected cable");
+    expect(cable.description).toBe("");
+    selectIds([cable.id]);
+    render(<PropertiesPanel />);
+    await user.type(screen.getByRole("textbox", { name: "Opis" }), "obwód gniazd");
+    const described = getEditorState().project.elements[0];
+    expect(isCable(described) && described.description).toBe("obwód gniazd");
   });
 
   it("przenosi wiele elementów między warstwami z panelu właściwości", async () => {

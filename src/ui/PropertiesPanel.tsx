@@ -58,6 +58,9 @@ function SingleProps({ el }: { el: OverlayElement }) {
         <label className="field">Nazwa
           <input value={el.name} onChange={(e) => commitElementPatch(el.id, { name: e.target.value })} />
         </label>
+        <label className="field">Opis
+          <textarea rows={3} value={el.description ?? ""} onChange={(e) => commitElementPatch(el.id, { description: e.target.value })} />
+        </label>
         <label className="field">Kolor
           <input type="color" value={el.color} onChange={(e) => commitElementPatch(el.id, { color: e.target.value })} />
         </label>

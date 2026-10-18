@@ -52,6 +52,7 @@ export function addCable(
     width?: number;
     style?: CableStyle;
     name?: string;
+    description?: string;
   },
 ): Project {
   const element: CableRoute = {
@@ -63,6 +64,7 @@ export function addCable(
     width: input.width ?? 3,
     style: input.style ?? "solid",
     name: input.name ?? "Przewód 0",
+    description: input.description ?? "",
   };
   return syncCableNumbers({ ...project, elements: [...project.elements, element] });
 }
@@ -114,6 +116,7 @@ export function duplicateElements(project: Project, ids: string[], offset = 24):
         color: el.color,
         width: el.width,
         style: el.style,
+        description: el.description,
       });
       created.push(next.elements[next.elements.length - 1]);
     } else {

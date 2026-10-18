@@ -56,6 +56,7 @@ export type CableRoute = {
   width: number;
   style: CableStyle;
   name: string;
+  description: string;
 };
 
 export type TextElement = {
