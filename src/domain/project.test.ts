@@ -101,6 +101,25 @@ describe("commands", () => {
     expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["AL1", "AL2", "AZ1", "AZ2", "AZ3"]);
   });
 
+  it("usuwa podłączenie symbolu z przewodu i nie kopiuje go przy duplikacie", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 0, y: 0 });
+    const symbolId = project.elements[0].id;
+    project = addCable(project, {
+      layerId,
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      symbolIds: [symbolId],
+    });
+    const cableId = project.elements[1].id;
+    project = duplicateElements(project, [cableId]);
+    const copy = project.elements.filter(isCable)[1];
+    expect(copy.symbolIds).toEqual([]);
+    project = deleteElements(project, [symbolId]);
+    const remaining = project.elements.find((el) => el.id === cableId);
+    expect(remaining && isCable(remaining) && remaining.symbolIds).toEqual([]);
+  });
+
   it("przesuwa, duplikuje i usuwa z czyszczeniem grup", () => {
     let project = createEmptyProject();
     const layerId = project.layers[0].id;
@@ -233,6 +252,7 @@ describe("migrations", () => {
     });
     expect(migrated.elements.filter(isCable).map((el) => el.name)).toEqual(["Przewód 1", "Oświetlenie salon"]);
     expect(migrated.elements.filter(isCable).every((el) => el.description === "")).toBe(true);
+    expect(migrated.elements.filter(isCable).every((el) => el.symbolIds.length === 0)).toBe(true);
     expect(migrated.nextCableSeq).toBe(2);
   });
 

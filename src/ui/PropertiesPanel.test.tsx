@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { isCable, isSymbol } from "../domain/types";
-import { commitAddLayer, finishCable, getEditorState, placeAt, previewCableSegment, resetEditorForTests, selectIds, setPendingSymbol, setTool, startCableSegment } from "../state/editorStore";
+import { commitAddLayer, connectSymbolToCableDraft, finishCable, getEditorState, placeAt, previewCableSegment, resetEditorForTests, selectIds, setPendingSymbol, setTool, startCableSegment } from "../state/editorStore";
 import { PropertiesPanel } from "./PropertiesPanel";
 
 function placedSymbol() {
@@ -77,6 +77,46 @@ describe("PropertiesPanel rotation", () => {
     await user.type(screen.getByRole("textbox", { name: "Opis" }), "obwód gniazd");
     const described = getEditorState().project.elements[0];
     expect(isCable(described) && described.description).toBe("obwód gniazd");
+  });
+
+  it("pokazuje podłączone symbole i odłącza je", async () => {
+    const user = userEvent.setup();
+    placedSymbol();
+    const symbol = getEditorState().project.elements[0];
+    if (!isSymbol(symbol)) throw new Error("expected symbol");
+    setTool("cable");
+    connectSymbolToCableDraft(symbol.id);
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("expected cable");
+    selectIds([cable.id]);
+    render(<PropertiesPanel />);
+    expect(screen.getByText(`${symbol.label} (Łącznik jednobiegunowy)`)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Odłącz" }));
+    const updated = getEditorState().project.elements.find(isCable);
+    expect(updated?.symbolIds).toEqual([]);
+    expect(screen.getByText("brak")).toBeInTheDocument();
+  });
+
+  it("dodaje zaznaczone symbole do istniejącego przewodu", async () => {
+    const user = userEvent.setup();
+    const symbol = placedSymbol();
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("expected cable");
+    selectIds([cable.id, symbol.id]);
+    render(<PropertiesPanel />);
+    expect(screen.getByRole("button", { name: "Dodaj zaznaczone" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Dodaj zaznaczone" }));
+    const updated = getEditorState().project.elements.find(isCable);
+    expect(updated?.symbolIds).toEqual([symbol.id]);
+    expect(screen.getByText(`${symbol.label} (Łącznik jednobiegunowy)`)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dodaj zaznaczone" })).toBeDisabled();
   });
 
   it("przenosi wiele elementów między warstwami z panelu właściwości", async () => {

@@ -19,8 +19,12 @@ export function migrateProject(raw: unknown): Project {
   const fallbackLayerId = layers[0].id;
   const elements = (Array.isArray(data.elements) ? data.elements : []).map((el) => {
     const withLayer = { ...el, layerId: (el as OverlayElement).layerId || fallbackLayerId };
-    if (isSymbol(withLayer as OverlayElement) || isCable(withLayer as OverlayElement)) {
+    if (isSymbol(withLayer as OverlayElement)) {
       return { ...withLayer, description: (withLayer as { description?: string }).description ?? "" };
+    }
+    if (isCable(withLayer as OverlayElement)) {
+      const cable = withLayer as { description?: string; symbolIds?: string[] };
+      return { ...withLayer, description: cable.description ?? "", symbolIds: cable.symbolIds ?? [] };
     }
     return withLayer;
   });

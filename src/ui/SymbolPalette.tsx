@@ -22,6 +22,7 @@ export function SymbolPalette() {
   const cableColor = useEditor((s) => s.cableColor);
   const cableWidth = useEditor((s) => s.cableWidth);
   const cableStyle = useEditor((s) => s.cableStyle);
+  const cableDraftSymbolIds = useEditor((s) => s.cableDraftSymbolIds);
   const defaultSymbolScale = useEditor((s) => s.project.defaultSymbolScale);
   const scaleReference = useEditor((s) => s.project.scaleReference);
   const selectedIds = useEditor((s) => s.selectedIds);
@@ -118,7 +119,13 @@ export function SymbolPalette() {
               <option value="dashed">Przerywana</option>
             </select>
           </label>
-          <p className="legend">Przytrzymaj LPM i ciągnij prosty odcinek. Puszczenie zatwierdza, kolejny odcinek dokłada się od końca. PPM kończy trasę.</p>
+          <p className="legend">Przytrzymaj LPM i ciągnij prosty odcinek. Puszczenie zatwierdza, kolejny odcinek dokłada się od końca. PPM kończy trasę. Ctrl+klik na symbolu — podłącz do przewodu.</p>
+          {cableDraftSymbolIds.length > 0 && (
+            <p className="legend">Podłączone: {cableDraftSymbolIds.map((id) => {
+              const symbol = elements.find((el) => el.id === id);
+              return symbol && isSymbol(symbol) ? symbol.label : id;
+            }).join(", ")}</p>
+          )}
         </div>
       )}
       <h2 className="panel-title">Symbole</h2>

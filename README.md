@@ -32,13 +32,15 @@ Grupa łączy łączniki z oprawami i po **Zatwierdź** wpisuje wspólne oznacze
 
 ### Skala rzutu
 
-Narzędzie **Skala rzutu**: dwa różne punkty na rzucie, rzeczywista długość w milimetrach, potem **Zatwierdź skalę**. Długości przewodów zmieniają się dopiero po zatwierdzeniu. Punkty skali przyciągają się co 1 px, niezależnie od siatki i przełącznika przyciągania. Symbole, tekst i przewody nadal używają kroku 10 px.
+Narzędzie **Skala rzutu**: dwa różne punkty na rzucie, rzeczywista długość w milimetrach, potem **Zatwierdź skalę**. Długości przewodów zmieniają się dopiero po zatwierdzeniu. Punkty skali przyciągają się co 1 px, niezależnie od siatki i przełącznika przyciągania. Nowe symbole i tekst używają kroku 10 px. Przesuwanie już umieszczonych symboli oraz punkty przewodów mają krok 1 px.
 
 Po zatwierdzeniu odcinek referencyjny znika z widoku i z eksportu. Punkty i długość zostają w pliku, więc długości przewodów nadal się liczą. Ponowne wejście w narzędzie pokazuje zapisany odcinek do korekty.
 
 ### Przewody, tekst i eksport
 
-Przewód rysuje się ciągiem odcinków (przytrzymaj LPM, PPM kończy trasę). Kolor, grubość i styl (ciągła albo przerywana) ustawia się przed rysowaniem i później we właściwościach. Legenda pokazuje długość każdej widocznej trasy i sumę, gdy skala jest ustawiona.
+Przewód rysuje się ciągiem odcinków (przytrzymaj LPM, PPM kończy trasę). Kolor, grubość i styl (ciągła albo przerywana) ustawia się przed rysowaniem i później we właściwościach. W trakcie rysowania **Ctrl+klik** na symbolu podłącza go do trasy. Do istniejącego przewodu dodaje się symbole tak jak do grupy: zaznacz przewód i symbole (Shift albo **Wybór wielu**), potem **Dodaj zaznaczone** we właściwościach. Podłączenia da się odłączyć. Nazwa przewodu zostaje we właściwościach, legendzie i eksporcie, ale nie na schemacie edytora. Symbole rysują się nad przewodami.
+
+Legenda pokazuje długość każdej widocznej trasy i sumę, gdy skala jest ustawiona.
 
 Eksport PNG i PDF zawiera tylko widoczne warstwy.
 

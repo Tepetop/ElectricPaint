@@ -35,7 +35,8 @@ async function registerPdfFonts(pdf: jsPDF) {
 
 function visibleElements(project: Project): OverlayElement[] {
   const hidden = new Set(project.layers.filter((l) => !l.visible).map((l) => l.id));
-  return project.elements.filter((el) => !hidden.has(el.layerId));
+  const visible = project.elements.filter((el) => !hidden.has(el.layerId));
+  return [...visible.filter(isCable), ...visible.filter((el) => !isCable(el))];
 }
 
 export async function buildExportStage(

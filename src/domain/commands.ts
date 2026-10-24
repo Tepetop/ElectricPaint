@@ -53,6 +53,7 @@ export function addCable(
     style?: CableStyle;
     name?: string;
     description?: string;
+    symbolIds?: string[];
   },
 ): Project {
   const element: CableRoute = {
@@ -65,6 +66,7 @@ export function addCable(
     style: input.style ?? "solid",
     name: input.name ?? "Przewód 0",
     description: input.description ?? "",
+    symbolIds: input.symbolIds ?? [],
   };
   return syncCableNumbers({ ...project, elements: [...project.elements, element] });
 }
@@ -91,7 +93,12 @@ export function deleteElements(project: Project, ids: string[]): Project {
   const idSet = new Set(ids);
   return syncCableNumbers({
     ...project,
-    elements: project.elements.filter((el) => !idSet.has(el.id)),
+    elements: project.elements
+      .filter((el) => !idSet.has(el.id))
+      .map((el) => {
+        if (!isCable(el) || el.symbolIds.every((id) => !idSet.has(id))) return el;
+        return { ...el, symbolIds: el.symbolIds.filter((id) => !idSet.has(id)) };
+      }),
     groups: project.groups.map((group) => ({
       ...group,
       switchIds: group.switchIds.filter((id) => !idSet.has(id)),

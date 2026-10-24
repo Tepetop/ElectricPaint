@@ -15,6 +15,9 @@ import {
   commitAddGroup,
   commitScaleLength,
   commitCableSegment,
+  connectSymbolToCableDraft,
+  cancelCable,
+  deleteSelected,
   duplicateSelected,
   finishCable,
   insertCablePoint,
@@ -127,6 +130,52 @@ describe("editor history", () => {
     const redone = getEditorState().project.elements[0];
     if (!isCable(redone)) return;
     expect(redone.points).toHaveLength(3);
+  });
+
+  it("podłącza symbole do kładzionego przewodu bez duplikatów", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    placeAt({ x: 40, y: 0 });
+    const [first, second] = getEditorState().project.elements.map((el) => el.id);
+    setTool("cable");
+    connectSymbolToCableDraft(first);
+    connectSymbolToCableDraft(first);
+    connectSymbolToCableDraft(second);
+    expect(getEditorState().cableDraftSymbolIds).toEqual([first, second]);
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 80, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    expect(cable?.symbolIds).toEqual([first, second]);
+    expect(getEditorState().cableDraftSymbolIds).toEqual([]);
+  });
+
+  it("anulowanie trasy czyści listę podłączeń", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    const id = getEditorState().project.elements[0].id;
+    setTool("cable");
+    connectSymbolToCableDraft(id);
+    cancelCable();
+    expect(getEditorState().cableDraftSymbolIds).toEqual([]);
+    connectSymbolToCableDraft(id);
+    setTool("select");
+    expect(getEditorState().cableDraftSymbolIds).toEqual([]);
+  });
+
+  it("usunięcie symbolu usuwa go z podłączeń przewodu", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    const symbolId = getEditorState().project.elements[0].id;
+    setTool("cable");
+    connectSymbolToCableDraft(symbolId);
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 40, y: 0 });
+    finishCable();
+    selectIds([symbolId]);
+    deleteSelected();
+    const cable = getEditorState().project.elements.find(isCable);
+    expect(cable?.symbolIds).toEqual([]);
   });
 });
 

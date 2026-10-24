@@ -57,6 +57,7 @@ export type CableRoute = {
   style: CableStyle;
   name: string;
   description: string;
+  symbolIds: string[];
 };
 
 export type TextElement = {

@@ -28,7 +28,7 @@ import {
 import { snapCablePoint, snapPoint } from "../domain/geometry";
 import { createId } from "../domain/ids";
 import { createEmptyProject, defaultSymbolLayerId, isLayerEditable, layerById, layerIdByName } from "../domain/project";
-import { isCable, type OverlayElement, type Point, type Project, type SymbolKind } from "../domain/types";
+import { isCable, isSymbol, type OverlayElement, type Point, type Project, type SymbolKind } from "../domain/types";
 
 export type Tool = "select" | "pan" | "symbol" | "cable" | "text" | "scale";
 
@@ -54,6 +54,7 @@ export type EditorState = {
   showGrid: boolean;
   snap: boolean;
   cableDraft: Point[];
+  cableDraftSymbolIds: string[];
   scaleDraft: Point[];
   scalePreview: Point | null;
   cableColor: string;
@@ -96,6 +97,7 @@ function emptyState(): EditorState {
     showGrid: true,
     snap: true,
     cableDraft: [],
+    cableDraftSymbolIds: [],
     scaleDraft: [],
     scalePreview: null,
     cableColor: "#1d4ed8",
@@ -336,6 +338,7 @@ export function setTool(tool: Tool, multiSelect = tool === "select" && state.mul
     multiSelect,
     pendingSymbolKind: tool === "symbol" ? state.pendingSymbolKind : null,
     cableDraft: tool === "cable" ? state.cableDraft : [],
+    cableDraftSymbolIds: tool === "cable" ? state.cableDraftSymbolIds : [],
     scaleDraft: tool === "scale" ? state.scaleDraft : [],
     scalePreview: tool === "scale" ? state.scalePreview : null,
   });
@@ -496,7 +499,7 @@ export function finishCable() {
     ? draft.slice(0, -1)
     : draft;
   if (committed.length < 2) {
-    setState({ cableDraft: [] });
+    setState({ cableDraft: [], cableDraftSymbolIds: [] });
     return;
   }
   const layerId = cableLayerId();
@@ -507,12 +510,20 @@ export function finishCable() {
     color: state.cableColor,
     width: state.cableWidth,
     style: state.cableStyle,
+    symbolIds: state.cableDraftSymbolIds,
   });
-  commit(next, { cableDraft: [] });
+  commit(next, { cableDraft: [], cableDraftSymbolIds: [] });
 }
 
 export function cancelCable() {
-  setState({ cableDraft: [] });
+  setState({ cableDraft: [], cableDraftSymbolIds: [] });
+}
+
+export function connectSymbolToCableDraft(id: string) {
+  if (state.tool !== "cable") return;
+  const el = state.project.elements.find((item) => item.id === id);
+  if (!el || !isSymbol(el) || state.cableDraftSymbolIds.includes(id)) return;
+  setState({ cableDraftSymbolIds: [...state.cableDraftSymbolIds, id] });
 }
 
 export function clickScalePoint(point: Point) {
@@ -666,6 +677,19 @@ export function commitDeleteGroup(groupId: string) {
 
 export function commitAssignSelected(groupId: string) {
   commit(assignSelectedToGroup(state.project, groupId, state.selectedIds));
+}
+
+export function commitAssignSelectedToCable(cableId: string) {
+  const el = state.project.elements.find((item) => item.id === cableId);
+  if (!el || !isCable(el)) return;
+  const connected = new Set(el.symbolIds);
+  const added = state.selectedIds.filter((id) => {
+    if (connected.has(id)) return false;
+    const item = state.project.elements.find((entry) => entry.id === id);
+    return Boolean(item && isSymbol(item));
+  });
+  if (added.length === 0) return;
+  commit(replaceElement(state.project, cableId, { symbolIds: [...el.symbolIds, ...added] } as Partial<OverlayElement>));
 }
 
 export function commitRemoveFromGroup(

@@ -11,6 +11,7 @@ import {
   commitElementPatch,
   commitMove,
   commitCableSegment,
+  connectSymbolToCableDraft,
   finishCable,
   insertCablePoint,
   placeAt,
@@ -131,6 +132,13 @@ export function StageCanvas() {
   }, []);
 
   const visible = project.elements.filter((el) => !hidden.has(el.layerId));
+  const editingCable = (el: OverlayElement) =>
+    isCable(el) && selectedIds.includes(el.id) && !locked.has(el.layerId) && tool === "select";
+  const painted = [
+    ...visible.filter((el) => isCable(el) && !editingCable(el)),
+    ...visible.filter((el) => !isCable(el)),
+    ...visible.filter(editingCable),
+  ];
   const viewport = useEditor((s) => s.viewport);
 
   const gridLines = useMemo(() => {
@@ -191,6 +199,10 @@ export function StageCanvas() {
     }
     if (evt.evt.button !== 0) return;
     if (tool === "cable") {
+      if (evt.evt.ctrlKey && evt.target.getAttr("epType") === "symbol") {
+        connectSymbolToCableDraft(evt.target.getAttr("epId"));
+        return;
+      }
       drawingCable.current = true;
       startCableSegment(toCanvas(evt));
       return;
@@ -307,7 +319,7 @@ export function StageCanvas() {
             {gridLines.map((pts, i) => (
               <Line key={i} points={pts} stroke="#00000018" strokeWidth={1} listening={false} />
             ))}
-            {visible.map((el) => {
+            {painted.map((el) => {
               const isLocked = locked.has(el.layerId);
               const selected = selectedIds.includes(el.id);
               if (isCable(el)) {
@@ -351,7 +363,7 @@ export function StageCanvas() {
                     }}
                     onDragEnd={(e) => {
                       const origin = dragOrigin.current.get(el.id) ?? { x: el.x, y: el.y };
-                      const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
+                      const pos = snapCablePoint({ x: e.target.x(), y: e.target.y() });
                       commitMove([el.id], pos.x - origin.x, pos.y - origin.y);
                     }}
                     onTransformEnd={(e) => {
@@ -366,6 +378,7 @@ export function StageCanvas() {
                     ref={(node) => {
                       if (node) {
                         node.setAttr("epType", "symbol");
+                        node.setAttr("epId", el.id);
                         nodeRefs.current.set(el.id, node);
                       } else nodeRefs.current.delete(el.id);
                     }}
@@ -467,7 +480,7 @@ export function StageCanvas() {
             {selectedIds
               .filter((id) => {
                 const el = project.elements.find((item) => item.id === id);
-                return Boolean(el && !isCable(el) && !locked.has(el.layerId));
+                return Boolean(el && !isCable(el) && !locked.has(el.layerId) && (tool === "select" || tool === "symbol"));
               })
               .map((id) => (
                 <SelectionBox key={id} nodeId={id} getNode={(nodeId) => nodeRefs.current.get(nodeId)} />
@@ -598,9 +611,6 @@ function CableShape({
           if (hit) insertCablePoint(el.id, hit.index, hit.point);
         }}
       />
-      {el.name && points[0] && (
-        <Text x={points[0].x + 8} y={points[0].y - 16} text={el.name} fill={el.color} fontSize={13} listening={false} />
-      )}
       {canEdit &&
         points.map((point, index) => (
           <Circle
