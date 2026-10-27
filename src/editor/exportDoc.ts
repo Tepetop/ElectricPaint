@@ -4,6 +4,7 @@ import { symbolByKind } from "../catalog/symbols";
 import type { OverlayElement, Project } from "../domain/types";
 import { isCable, isSymbol, isText } from "../domain/types";
 import { SYMBOL_SIZE, cableDash, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
+import { collectCableList } from "../domain/cableList";
 import { collectSymbolList } from "../domain/symbolList";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 import regularFontUrl from "../assets/fonts/LiberationSans-Regular.ttf?url";
@@ -87,17 +88,6 @@ export async function buildExportStage(
           lineJoin: "round",
         }),
       );
-      if (el.name && el.points.length) {
-        layer.add(
-          new Konva.Text({
-            x: el.points[0].x + 6,
-            y: el.points[0].y - 16,
-            text: el.name,
-            fontSize: 14,
-            fill: el.color,
-          }),
-        );
-      }
     } else if (isSymbol(el)) {
       const image = symbolImage(el.kind);
       if (image) {
@@ -167,6 +157,7 @@ export async function exportPdfBytes(
   pdf.addImage(url, "PNG", 0, 0, w, h);
   await registerPdfFonts(pdf);
   addSymbolListPages(pdf, project);
+  addCableListPages(pdf, project);
   const output = pdf.output("arraybuffer");
   return new Uint8Array(output);
 }
@@ -181,17 +172,62 @@ export function elementLabel(el: OverlayElement): string {
 
 function addSymbolListPages(pdf: jsPDF, project: Project) {
   const rows = collectSymbolList(project);
+  addTablePages(pdf, {
+    title: "Lista symboli",
+    headings: ["Oznaczenie", "Typ", "Grupy", "Opis"],
+    widths: (tableWidth) => [82, 188, 72, tableWidth - 342],
+    empty: "Brak symboli na widocznych warstwach.",
+    rows: rows.map((row) => [row.label || "-", row.typeName || "-", row.groups || "-", row.description || "-"]),
+  });
+}
+
+function addCableListPages(pdf: jsPDF, project: Project) {
+  const rows = collectCableList(project);
+  addTablePages(pdf, {
+    title: "Lista przewodów",
+    headings: ["Nazwa", "Kolor", "Podłączone symbole"],
+    widths: (tableWidth) => [168, 120, tableWidth - 288],
+    empty: "Brak przewodów na widocznych warstwach.",
+    rows: rows.map((row) => [row.name || "-", row.color || "-", row.symbols || "-"]),
+    colorColumn: 1,
+  });
+}
+
+function cableColorRgb(color: string): [number, number, number] {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(color);
+  if (!match) return [0, 0, 0];
+  const value = Number.parseInt(match[1], 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function addTablePages(
+  pdf: jsPDF,
+  table: {
+    title: string;
+    headings: string[];
+    widths: (tableWidth: number) => number[];
+    empty: string;
+    rows: string[][];
+    colorColumn?: number;
+  },
+) {
   pdf.addPage("a4", "portrait");
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const margin = 36;
   const tableWidth = pageW - margin * 2;
-  const widths = [82, 188, 72, tableWidth - 342];
-  const starts = [margin, margin + widths[0], margin + widths[0] + widths[1], margin + widths[0] + widths[1] + widths[2]];
+  const widths = table.widths(tableWidth);
+  const starts: number[] = [];
+  let cursor = margin;
+  for (const width of widths) {
+    starts.push(cursor);
+    cursor += width;
+  }
   const padding = 7;
   const lineHeight = 12;
   const headerHeight = 27;
   const bottom = pageH - margin;
+  const colorInset = 16;
 
   const drawGrid = (top: number, height: number) => {
     pdf.setDrawColor(185, 196, 207);
@@ -206,14 +242,14 @@ function addSymbolListPages(pdf: jsPDF, project: Project) {
     pdf.setFont(PDF_FONT, "bold");
     pdf.setFontSize(16);
     pdf.setTextColor(25, 39, 52);
-    pdf.text("Lista symboli", margin, 52);
+    pdf.text(table.title, margin, 52);
     const top = 69;
     pdf.setFillColor(42, 59, 75);
     pdf.rect(margin, top, tableWidth, headerHeight, "F");
     drawGrid(top, headerHeight);
     pdf.setFontSize(9);
     pdf.setTextColor(255, 255, 255);
-    ["Oznaczenie", "Typ", "Grupy", "Opis"].forEach((heading, column) => {
+    table.headings.forEach((heading, column) => {
       pdf.text(heading, starts[column] + padding, top + 18);
     });
     pdf.setFont(PDF_FONT, "normal");
@@ -222,18 +258,18 @@ function addSymbolListPages(pdf: jsPDF, project: Project) {
   };
 
   let y = drawHeader();
-  if (rows.length === 0) {
+  if (table.rows.length === 0) {
     pdf.setFontSize(9);
-    pdf.text("Brak symboli na widocznych warstwach.", margin + padding, y + 17);
+    pdf.text(table.empty, margin + padding, y + 17);
     drawGrid(y, 28);
     return;
   }
   pdf.setFontSize(9);
-  rows.forEach((row, rowIndex) => {
-    const values = [row.label || "-", row.typeName || "-", row.groups || "-", row.description || "-"];
-    const lines = values.map((value, column) =>
-      pdf.splitTextToSize(value, widths[column] - padding * 2) as string[],
-    );
+  table.rows.forEach((row, rowIndex) => {
+    const lines = row.map((value, column) => {
+      const inset = column === table.colorColumn ? colorInset : 0;
+      return pdf.splitTextToSize(value, widths[column] - padding * 2 - inset) as string[];
+    });
     const lineCount = Math.max(...lines.map((cell) => cell.length));
     let firstLine = 0;
     while (firstLine < lineCount) {
@@ -253,8 +289,15 @@ function addSymbolListPages(pdf: jsPDF, project: Project) {
       }
       drawGrid(y, height);
       lines.forEach((cell, column) => {
-        cell.slice(firstLine, firstLine + count).forEach((line, index) => {
-          pdf.text(line, starts[column] + padding, y + 16 + index * lineHeight);
+        const slice = cell.slice(firstLine, firstLine + count);
+        const inset = column === table.colorColumn ? colorInset : 0;
+        if (column === table.colorColumn && slice.length > 0) {
+          const [r, g, b] = cableColorRgb(row[column]);
+          pdf.setFillColor(r, g, b);
+          pdf.rect(starts[column] + padding, y + 8, 10, 10, "F");
+        }
+        slice.forEach((line, index) => {
+          pdf.text(line, starts[column] + padding + inset, y + 16 + index * lineHeight);
         });
       });
       y += height;

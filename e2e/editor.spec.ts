@@ -147,19 +147,26 @@ test("eksport PDF zachowuje polskie znaki i dzieli tabelę symboli na strony", a
   await page.getByRole("button", { name: "Eksport PDF" }).click();
   const download = await downloadPromise;
   const pdf = await getDocument({ data: new Uint8Array(await readFile(await download.path()!)) }).promise;
-  expect(pdf.numPages).toBeGreaterThanOrEqual(3);
+  expect(pdf.numPages).toBeGreaterThanOrEqual(4);
 
-  const pageTexts: string[] = [];
+  const symbolTexts: string[] = [];
+  const cableTexts: string[] = [];
   for (let number = 2; number <= pdf.numPages; number++) {
     const text = await (await pdf.getPage(number)).getTextContent();
     const pageText = text.items.map((item) => "str" in item ? item.str : "").join(" ");
-    expect(pageText).toContain("Lista symboli");
-    expect(pageText).toContain("Oznaczenie");
-    pageTexts.push(pageText);
+    expect(pageText.includes("Lista symboli") || pageText.includes("Lista przewodów")).toBe(true);
+    if (pageText.includes("Lista symboli")) {
+      expect(pageText).toContain("Oznaczenie");
+      symbolTexts.push(pageText);
+    } else {
+      cableTexts.push(pageText);
+    }
   }
-  expect(pageTexts.join(" ")).toContain("Łącznik jednobiegunowy");
-  expect(pageTexts.join(" ")).toContain("Żółć, łącznik i oświetlenie");
-  expect(pageTexts.at(-1)).toContain("G41");
+  expect(symbolTexts.join(" ")).toContain("Łącznik jednobiegunowy");
+  expect(symbolTexts.join(" ")).toContain("Żółć, łącznik i oświetlenie");
+  expect(symbolTexts.at(-1)).toContain("G41");
+  expect(cableTexts.length).toBeGreaterThan(0);
+  expect(cableTexts.join(" ")).toContain("Oświetlenie salon");
 });
 
 test("ekran startowy nie ma zakładek", async ({ page }) => {
