@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inspectPdf, rasterizePdfPage } from "./background";
 import { clearAutosave, readAutosave, writeAutosave } from "./autosave";
 import { writeFile } from "@tauri-apps/plugin-fs";
@@ -30,6 +30,10 @@ vi.mock("./background", () => ({
 vi.mock("../editor/exportDoc", () => ({
   exportPdfBytes: vi.fn(),
 }));
+
+beforeEach(() => {
+  resetEditorForTests();
+});
 
 afterEach(() => {
   vi.clearAllMocks();

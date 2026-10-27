@@ -62,6 +62,7 @@ export type EditorState = {
   cableStyle: CableStyle;
   viewport: { width: number; height: number };
   restoreAvailable: boolean;
+  groupsHidden: boolean;
   undoDepth: number;
   redoDepth: number;
 };
@@ -74,13 +75,13 @@ const listeners = new Set<() => void>();
 let history: HistoryState = { past: [], future: [] };
 let nextUntitledNumber = 1;
 
-function emptyState(): EditorState {
-  const tabTitle = `Nowy rzut ${nextUntitledNumber++}`;
-  const project = createEmptyProject(tabTitle);
+function emptyState(tabTitle?: string): EditorState {
+  const title = tabTitle === undefined ? `Nowy rzut ${nextUntitledNumber++}` : tabTitle;
+  const project = createEmptyProject(title);
   return {
     activeTabId: createId(),
     tabs: [],
-    tabTitle,
+    tabTitle: title,
     editRevision: 0,
     needsInitialFit: false,
     project,
@@ -105,14 +106,15 @@ function emptyState(): EditorState {
     cableStyle: "solid",
     viewport: { width: 800, height: 600 },
     restoreAvailable: false,
+    groupsHidden: true,
     undoDepth: 0,
     redoDepth: 0,
   };
 }
 
-let state: EditorState = emptyState();
-let tabOrder = [state.activeTabId];
-let sessions = new Map<string, StoredSession>([[state.activeTabId, { editor: state, history }]]);
+let state: EditorState = emptyState("");
+let tabOrder: string[] = [];
+let sessions = new Map<string, StoredSession>();
 
 function tabSummaries(): TabSummary[] {
   return tabOrder.flatMap((id) => {
@@ -123,7 +125,9 @@ function tabSummaries(): TabSummary[] {
 
 function emit() {
   state = { ...state, tabs: tabSummaries() };
-  sessions.set(state.activeTabId, { editor: state, history });
+  if (tabOrder.includes(state.activeTabId)) {
+    sessions.set(state.activeTabId, { editor: state, history });
+  }
   for (const listener of listeners) listener();
 }
 
@@ -177,8 +181,7 @@ export function closeTab(id: string): boolean {
   tabOrder = tabOrder.filter((item) => item !== id);
   sessions.delete(id);
   if (tabOrder.length === 0) {
-    const fresh = emptyState();
-    tabOrder = [fresh.activeTabId];
+    const fresh = emptyState("");
     history = { past: [], future: [] };
     state = { ...fresh, viewport: state.viewport, restoreAvailable: state.restoreAvailable };
   } else if (id === state.activeTabId) {
@@ -362,6 +365,10 @@ export function setPan(pan: Point) {
 
 export function setShowGrid(showGrid: boolean) {
   setState({ showGrid });
+}
+
+export function setGroupsHidden(groupsHidden: boolean) {
+  setState({ groupsHidden });
 }
 
 export function setSnap(snap: boolean) {
@@ -657,7 +664,7 @@ export function commitDeleteLayer(layerId: string, mode: { type: "delete-element
 }
 
 export function commitAddGroup() {
-  commit(addGroup(state.project));
+  commit(addGroup(state.project), { groupsHidden: false });
 }
 
 export function commitUpdateGroup(
@@ -676,7 +683,7 @@ export function commitDeleteGroup(groupId: string) {
 }
 
 export function commitAssignSelected(groupId: string) {
-  commit(assignSelectedToGroup(state.project, groupId, state.selectedIds));
+  commit(assignSelectedToGroup(state.project, groupId, state.selectedIds), { selectedIds: [] });
 }
 
 export function commitAssignSelectedToCable(cableId: string) {
@@ -689,7 +696,7 @@ export function commitAssignSelectedToCable(cableId: string) {
     return Boolean(item && isSymbol(item));
   });
   if (added.length === 0) return;
-  commit(replaceElement(state.project, cableId, { symbolIds: [...el.symbolIds, ...added] } as Partial<OverlayElement>));
+  commit(replaceElement(state.project, cableId, { symbolIds: [...el.symbolIds, ...added] } as Partial<OverlayElement>), { selectedIds: [] });
 }
 
 export function commitRemoveFromGroup(

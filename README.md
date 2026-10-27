@@ -8,7 +8,7 @@ Lokalna, desktopowa aplikacja do nanoszenia symboli i tras instalacji elektryczn
 
 Każda zakładka to osobny rzut i osobny plik `.epaint` — na przykład kolejne piętra. **Nowy**, **Otwórz**, **Przykład** i Ctrl+N dodają zakładkę, a nie zastępują otwartego rzutu. **Zapisz**, **Zapisz jako** i eksport dotyczą aktywnej zakładki.
 
-Przełączenie zakładki zostawia przy niej zaznaczenie, szkic przewodu, szkic skali, powiększenie, przesunięcie widoku oraz własną historię cofania. Zamknięcie ostatniej zakładki zostawia pusty rzut. Otwarcie pliku, który jest już w innej zakładce, pokazuje ostrzeżenie, bo drugi zapis nadpisze ten sam plik.
+Aplikacja startuje od ekranu startowego. Żeby otworzyć rzut, trzeba kliknąć **Nowy projekt**, **Otwórz projekt** albo **Przykład**. Przełączenie zakładki zostawia przy niej zaznaczenie, szkic przewodu, szkic skali, powiększenie, przesunięcie widoku oraz własną historię cofania. Zamknięcie ostatniej zakładki wraca do ekranu startowego, a nie do pustego rzutu. Otwarcie pliku, który jest już w innej zakładce, pokazuje ostrzeżenie, bo drugi zapis nadpisze ten sam plik.
 
 Niezapisane zakładki trafiają do autosave co 20 sekund. Po ponownym uruchomieniu baner **Przywróć** odtwarza je wszystkie. Zapis jednej zakładki nie kasuje autosave pozostałych.
 
@@ -28,7 +28,7 @@ Aby przenieść kilka symboli naraz, włącz **Wybór wielu** w lewym panelu i k
 
 ### Grupy sterowania
 
-Grupa łączy łączniki z oprawami i po **Zatwierdź** wpisuje wspólne oznaczenie na schemacie. **Zwiń wszystkie** i **Rozwiń wszystkie** zmieniają stan wszystkich grup jednym krokiem historii. Pojedynczą grupę nadal można zwinąć osobno. Zwinięcie zapisuje się w pliku.
+Grupa łączy łączniki z oprawami i po **Zatwierdź** wpisuje wspólne oznaczenie na schemacie. Po otwarciu rzutu lista grup jest schowana — pokazuje ją **Pokaż grupy** albo **Nowa grupa**. Po **Dodaj zaznaczone** zaznaczenie jest czyszczone. **Zwiń wszystkie** i **Rozwiń wszystkie** zmieniają stan wszystkich grup jednym krokiem historii. Pojedynczą grupę nadal można zwinąć osobno. Zwinięcie zapisuje się w pliku.
 
 ### Skala rzutu
 
@@ -38,7 +38,7 @@ Po zatwierdzeniu odcinek referencyjny znika z widoku i z eksportu. Punkty i dłu
 
 ### Przewody, tekst i eksport
 
-Przewód rysuje się ciągiem odcinków (przytrzymaj LPM, PPM kończy trasę). Kolor, grubość i styl (ciągła, przerywana albo kropka-kreska) ustawia się przed rysowaniem i później we właściwościach. W trakcie rysowania **Ctrl+klik** na symbolu podłącza go do trasy. Do istniejącego przewodu dodaje się symbole tak jak do grupy: zaznacz przewód i symbole (Shift albo **Wybór wielu**), potem **Dodaj zaznaczone** we właściwościach. Podłączenia da się odłączyć. Ułożony przewód można schować i ponownie pokazać na schemacie we właściwościach lub w legendzie tras. Nazwa przewodu zostaje we właściwościach, legendzie i eksporcie, ale nie na schemacie edytora. Symbole rysują się nad przewodami.
+Przewód rysuje się ciągiem odcinków (przytrzymaj LPM, PPM kończy trasę). Kolor, grubość i styl (ciągła, przerywana albo kropka-kreska) ustawia się przed rysowaniem i później we właściwościach. W trakcie rysowania **Ctrl+klik** na symbolu podłącza go do trasy. Do istniejącego przewodu dodaje się symbole tak jak do grupy: zaznacz przewód i symbole (Shift albo **Wybór wielu**), potem **Dodaj zaznaczone** we właściwościach. Po **Dodaj zaznaczone** zaznaczenie jest czyszczone. Podłączenia da się odłączyć. Ułożony przewód można schować i ponownie pokazać na schemacie we właściwościach lub w legendzie tras. Nazwa przewodu zostaje we właściwościach, legendzie i eksporcie, ale nie na schemacie edytora. Symbole rysują się nad przewodami.
 
 Legenda pokazuje długość każdej widocznej trasy i sumę, gdy skala jest ustawiona.
 
@@ -48,6 +48,7 @@ Eksport PNG i PDF zawiera tylko widoczne warstwy.
 
 - Ctrl+N — nowa zakładka
 - Ctrl+O — otwórz
+- Esc — anuluj rysowanie / odznacz
 - Ctrl+S — zapisz, Ctrl+Shift+S — zapisz jako
 - Delete albo Backspace — usuń zaznaczenie
 - Spacja (przytrzymana) albo środkowy przycisk — przesuwanie widoku

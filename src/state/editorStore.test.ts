@@ -13,6 +13,8 @@ import {
   commitUpdateLayer,
   commitSetAllGroupsCollapsed,
   commitAddGroup,
+  commitAssignSelected,
+  commitAssignSelectedToCable,
   commitScaleLength,
   commitCableSegment,
   connectSymbolToCableDraft,
@@ -243,10 +245,10 @@ describe("tabs", () => {
     }
   });
 
-  it("zamknięcie ostatniej zakładki pozostawia pusty rzut", () => {
+  it("zamknięcie ostatniej zakładki wraca do stanu bez zakładek", () => {
     const id = getEditorState().activeTabId;
     expect(closeTab(id)).toBe(true);
-    expect(getEditorState().tabs).toHaveLength(1);
+    expect(getEditorState().tabs).toHaveLength(0);
     expect(getEditorState().activeTabId).not.toBe(id);
     expect(getEditorState().project.elements).toHaveLength(0);
   });
@@ -365,6 +367,34 @@ describe("layers and groups", () => {
     expect(getEditorState().undoDepth).toBe(depth + 1);
     undo();
     expect(getEditorState().project.elements[0].layerId).toBe(originalLayerId);
+    expect(getEditorState().selectedIds).toEqual([]);
+  });
+
+  it("nowa zakładka chowa grupy, a utworzenie grupy je pokazuje", () => {
+    expect(getEditorState().groupsHidden).toBe(true);
+    newProject();
+    expect(getEditorState().groupsHidden).toBe(true);
+    commitAddGroup();
+    expect(getEditorState().groupsHidden).toBe(false);
+  });
+
+  it("dodanie zaznaczonych czyści zaznaczenie", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 10, y: 10 });
+    const symbolId = getEditorState().project.elements[0].id;
+    commitAddGroup();
+    selectIds([symbolId]);
+    commitAssignSelected(getEditorState().project.groups[0].id);
+    expect(getEditorState().selectedIds).toEqual([]);
+
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("brak przewodu");
+    selectIds([symbolId, cable.id]);
+    commitAssignSelectedToCable(cable.id);
     expect(getEditorState().selectedIds).toEqual([]);
   });
 

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { isSymbol, type ControlGroup } from "../domain/types";
 import {
   commitAddGroup,
@@ -9,6 +8,7 @@ import {
   commitSetAllGroupsCollapsed,
   commitUpdateGroup,
   selectIds,
+  setGroupsHidden,
   useEditor,
 } from "../state/editorStore";
 
@@ -22,7 +22,7 @@ export function GroupsPanel() {
   const groups = useEditor((s) => s.project.groups);
   const elements = useEditor((s) => s.project.elements);
   const selectedIds = useEditor((s) => s.selectedIds);
-  const [groupsHidden, setGroupsHidden] = useState(false);
+  const groupsHidden = useEditor((s) => s.groupsHidden);
   const labelOf = (id: string) => {
     const el = elements.find((item) => item.id === id);
     return el && isSymbol(el) ? el.label : id.slice(0, 6);

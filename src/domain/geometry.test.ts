@@ -40,6 +40,14 @@ describe("symbolLabelPosition", () => {
     expect(back.x).toBeCloseTo(18);
     expect(back.y).toBeCloseTo(-10);
   });
+
+  it("obrót 90° wraca do punktu oddalonego o kilka pikseli", () => {
+    const el = { ...base, rotation: 90 };
+    const origin = symbolLabelPosition(el);
+    const world = { x: origin.x + 5, y: origin.y - 4 };
+    const back = symbolLabelPosition({ ...el, labelOffset: labelOffsetFromWorld(el, world) });
+    expect(Math.hypot(back.x - world.x, back.y - world.y)).toBeLessThanOrEqual(1);
+  });
 });
 
 describe("lengthInMeters", () => {

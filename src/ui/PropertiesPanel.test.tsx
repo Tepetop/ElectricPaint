@@ -116,8 +116,8 @@ describe("PropertiesPanel rotation", () => {
     await user.click(screen.getByRole("button", { name: "Dodaj zaznaczone" }));
     const updated = getEditorState().project.elements.find(isCable);
     expect(updated?.symbolIds).toEqual([symbol.id]);
-    expect(screen.getByText(`${symbol.label} (Łącznik jednobiegunowy)`)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Dodaj zaznaczone" })).toBeDisabled();
+    expect(getEditorState().selectedIds).toEqual([]);
+    expect(screen.getByText("Zaznacz element, aby edytować właściwości.")).toBeInTheDocument();
   });
 
   it("przenosi wiele elementów między warstwami z panelu właściwości", async () => {

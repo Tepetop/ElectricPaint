@@ -437,11 +437,10 @@ export function StageCanvas() {
                     selectElement(el.id, e.evt.shiftKey);
                   }}
                   onDragEnd={(e) => {
-                    const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
-                    const offset = labelOffsetFromWorld(el, pos);
-                    commitElementPatch(el.id, {
-                      labelOffset: { x: Math.round(offset.x), y: Math.round(offset.y) },
-                    });
+                    const offset = labelOffsetFromWorld(el, snapCablePoint({ x: e.target.x(), y: e.target.y() }));
+                    const labelOffset = { x: Math.round(offset.x), y: Math.round(offset.y) };
+                    e.target.position(symbolLabelPosition({ ...el, labelOffset }));
+                    commitElementPatch(el.id, { labelOffset });
                   }}
                 />
               );

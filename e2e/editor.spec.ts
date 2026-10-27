@@ -58,6 +58,8 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
 
 test("zakładki, ponowne numerowanie grup i dopasowanie widoku", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await page.getByRole("button", { name: "Nowy projekt" }).click();
   await expect(page.getByRole("tab")).toHaveCount(1);
   await page.getByRole("button", { name: "Łącznik schodowy", exact: true }).click();
   await page.evaluate(() => window.__ep?.placeAt({ x: 100, y: 100 }));
@@ -91,6 +93,8 @@ test("zakładki, ponowne numerowanie grup i dopasowanie widoku", async ({ page }
 
 test("wybór wielu symboli i wspólna zmiana warstwy", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: "Nowy projekt" }).click();
+  await expect(page.locator(".stage-host canvas")).toBeVisible();
   await page.evaluate(() => {
     window.__ep!.setPendingSymbol("switch-single");
     window.__ep!.placeAt({ x: 100, y: 100 });
@@ -156,4 +160,54 @@ test("eksport PDF zachowuje polskie znaki i dzieli tabelę symboli na strony", a
   expect(pageTexts.join(" ")).toContain("Łącznik jednobiegunowy");
   expect(pageTexts.join(" ")).toContain("Żółć, łącznik i oświetlenie");
   expect(pageTexts.at(-1)).toContain("G41");
+});
+
+test("ekran startowy nie ma zakładek", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Nowy projekt" })).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+});
+
+test("Esc czyści zaznaczenie", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Nowy projekt" }).click();
+  await expect(page.locator(".stage-host canvas")).toBeVisible();
+  await page.evaluate(() => {
+    window.__ep!.setPendingSymbol("switch-single");
+    window.__ep!.placeAt({ x: 100, y: 100 });
+  });
+  expect(await page.evaluate(() => window.__ep!.getEditorState().selectedIds.length)).toBe(1);
+  await page.keyboard.press("Escape");
+  expect(await page.evaluate(() => window.__ep!.getEditorState().selectedIds)).toEqual([]);
+});
+
+test("przeciągnięcie etykiety zostawia pobliski offset", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Nowy projekt" }).click();
+  await expect(page.locator(".stage-host canvas")).toBeVisible();
+  await page.evaluate(() => {
+    window.__ep!.setPendingSymbol("switch-single");
+    window.__ep!.placeAt({ x: 100, y: 100 });
+    window.__ep!.setTool("select");
+  });
+  const canvas = await page.locator(".stage-host canvas").first().boundingBox();
+  if (!canvas) throw new Error("Brak płótna");
+  const { zoom, pan } = await page.evaluate(() => window.__ep!.getEditorState());
+  const startX = canvas.x + pan.x + 160 * zoom;
+  const startY = canvas.y + pan.y + 120 * zoom;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 12, startY + 6, { steps: 5 });
+  await page.mouse.up();
+  const offset = await page.evaluate(() => {
+    const element = window.__ep!.getEditorState().project.elements[0];
+    return element?.type === "symbol" ? element.labelOffset ?? null : null;
+  });
+  expect(offset).not.toBeNull();
+  expect(Number.isInteger(offset!.x)).toBe(true);
+  expect(Number.isInteger(offset!.y)).toBe(true);
+  expect(Math.abs(offset!.x) + Math.abs(offset!.y)).toBeGreaterThan(0);
+  expect(offset!.x).toBeGreaterThanOrEqual(4);
+  expect(offset!.x).toBeLessThanOrEqual(24);
+  expect(Math.abs(offset!.y)).toBeLessThanOrEqual(16);
 });
