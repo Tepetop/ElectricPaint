@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORY_LABELS, SYMBOL_CATALOG, symbolDataUrl, type SymbolCategory } from "../catalog/symbols";
 import { metersToMm, mmToMeters } from "../domain/geometry";
-import { isSymbol } from "../domain/types";
+import { isSymbol, type CableStyle } from "../domain/types";
 import {
   commitApplySymbolScale,
   commitScaleAllSymbols,
@@ -114,9 +114,10 @@ export function SymbolPalette() {
             <input type="number" min={1} max={12} value={cableWidth} onChange={(e) => setCableStyle({ cableWidth: Number(e.target.value) || 3 })} />
           </label>
           <label className="field">Styl
-            <select value={cableStyle} onChange={(e) => setCableStyle({ cableStyle: e.target.value as "solid" | "dashed" })}>
+            <select value={cableStyle} onChange={(e) => setCableStyle({ cableStyle: e.target.value as CableStyle })}>
               <option value="solid">Ciągła</option>
               <option value="dashed">Przerywana</option>
+              <option value="dot-dash">Kropka-kreska</option>
             </select>
           </label>
           <p className="legend">Przytrzymaj LPM i ciągnij prosty odcinek. Puszczenie zatwierdza, kolejny odcinek dokłada się od końca. PPM kończy trasę. Ctrl+klik na symbolu — podłącz do przewodu.</p>

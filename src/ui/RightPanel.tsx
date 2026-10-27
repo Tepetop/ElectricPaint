@@ -1,6 +1,6 @@
 import { formatMeters, lengthInMeters } from "../domain/geometry";
 import { isCable, type CableRoute } from "../domain/types";
-import { useEditor } from "../state/editorStore";
+import { commitElementPatch, useEditor } from "../state/editorStore";
 import { GroupsPanel } from "./GroupsPanel";
 import { LayersPanel } from "./LayersPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
@@ -30,11 +30,17 @@ export function RightPanel() {
         )}
         {cables.map((el) => {
           const meters = lengthInMeters(el.points, scaleReference);
+          const hiddenCable = el.visible === false;
           return (
-            <div key={el.id} className="legend">
-              <span className="swatch" style={{ background: el.color }} />
-              {el.name}
-              {` · ${meters == null ? "brak skali" : formatMeters(meters)}`}
+            <div key={el.id} className="row" style={{ justifyContent: "space-between", marginBottom: 4 }}>
+              <span className="legend">
+                <span className="swatch" style={{ background: el.color, opacity: hiddenCable ? 0.35 : 1 }} />
+                {el.name}
+                {` · ${meters == null ? "brak skali" : formatMeters(meters)}`}
+              </span>
+              <button type="button" onClick={() => commitElementPatch(el.id, { visible: hiddenCable })}>
+                {hiddenCable ? "Pokaż" : "Schowaj"}
+              </button>
             </div>
           );
         })}

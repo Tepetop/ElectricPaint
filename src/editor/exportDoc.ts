@@ -3,7 +3,7 @@ import { jsPDF } from "jspdf";
 import { symbolByKind } from "../catalog/symbols";
 import type { OverlayElement, Project } from "../domain/types";
 import { isCable, isSymbol, isText } from "../domain/types";
-import { SYMBOL_SIZE, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
+import { SYMBOL_SIZE, cableDash, polylineToFlat, symbolLabelPosition } from "../domain/geometry";
 import { collectSymbolList } from "../domain/symbolList";
 import { loadDataUrlImage, preloadSymbolImages, symbolImage } from "./images";
 import regularFontUrl from "../assets/fonts/LiberationSans-Regular.ttf?url";
@@ -35,7 +35,7 @@ async function registerPdfFonts(pdf: jsPDF) {
 
 function visibleElements(project: Project): OverlayElement[] {
   const hidden = new Set(project.layers.filter((l) => !l.visible).map((l) => l.id));
-  const visible = project.elements.filter((el) => !hidden.has(el.layerId));
+  const visible = project.elements.filter((el) => !hidden.has(el.layerId) && (!isCable(el) || el.visible !== false));
   return [...visible.filter(isCable), ...visible.filter((el) => !isCable(el))];
 }
 
@@ -82,7 +82,7 @@ export async function buildExportStage(
           points: polylineToFlat(el.points),
           stroke: el.color,
           strokeWidth: el.width,
-          dash: el.style === "dashed" ? [12, 8] : undefined,
+          dash: cableDash(el.style),
           lineCap: "round",
           lineJoin: "round",
         }),

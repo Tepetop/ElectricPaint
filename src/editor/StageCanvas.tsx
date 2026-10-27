@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
-import { SYMBOL_SIZE, findClosestCableSegment, formatScaleLength, labelOffsetFromWorld, polylineToFlat, segmentMidpoint, snapCablePoint, snapPoint, symbolLabelPosition } from "../domain/geometry";
+import { SYMBOL_SIZE, cableDash, findClosestCableSegment, formatScaleLength, labelOffsetFromWorld, polylineToFlat, segmentMidpoint, snapCablePoint, snapPoint, symbolLabelPosition } from "../domain/geometry";
 import { GRID_SIZE, isCable, isSymbol, isText, type OverlayElement, type Point } from "../domain/types";
 import {
   canvasPointFromScreen,
@@ -131,7 +131,7 @@ export function StageCanvas() {
     return () => window.removeEventListener("mouseup", onUp);
   }, []);
 
-  const visible = project.elements.filter((el) => !hidden.has(el.layerId));
+  const visible = project.elements.filter((el) => !hidden.has(el.layerId) && (!isCable(el) || el.visible !== false));
   const editingCable = (el: OverlayElement) =>
     isCable(el) && selectedIds.includes(el.id) && !locked.has(el.layerId) && tool === "select";
   const painted = [
@@ -451,7 +451,7 @@ export function StageCanvas() {
                 points={polylineToFlat(cableDraft)}
                 stroke={cableColor}
                 strokeWidth={cableWidth}
-                dash={cableStyle === "dashed" ? [12, 8] : undefined}
+                dash={cableDash(cableStyle)}
                 lineCap="round"
                 lineJoin="round"
                 listening={false}
@@ -593,7 +593,7 @@ function CableShape({
         points={polylineToFlat(points)}
         stroke={el.color}
         strokeWidth={el.width}
-        dash={el.style === "dashed" ? [12, 8] : undefined}
+        dash={cableDash(el.style)}
         hitStrokeWidth={16}
         lineCap="round"
         lineJoin="round"

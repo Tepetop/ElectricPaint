@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SYMBOL_SIZE,
+  cableDash,
   findClosestCableSegment,
   formatScaleLength,
   labelOffsetFromWorld,
@@ -93,5 +94,11 @@ describe("geometria odcinków przewodu", () => {
     expect(hit?.index).toBe(1);
     expect(hit?.point).toEqual({ x: 10, y: 5 });
     expect(hit?.distance).toBe(2);
+  });
+
+  it("zwraca wzór kreskowania dla stylów przewodu", () => {
+    expect(cableDash("solid")).toBeUndefined();
+    expect(cableDash("dashed")).toEqual([12, 8]);
+    expect(cableDash("dot-dash")).toEqual([2, 8, 12, 8]);
   });
 });

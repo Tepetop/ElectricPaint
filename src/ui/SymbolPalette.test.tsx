@@ -70,4 +70,13 @@ describe("SymbolPalette", () => {
     expect(getEditorState().project.elements.map((el) => el.type === "symbol" ? el.scale : null)).toEqual([1.8, 1.8]);
     expect(getEditorState().project.defaultSymbolScale).toBe(1.8);
   });
+
+  it("ustawia styl przewodu kropka-kreska przed układaniem", async () => {
+    const user = userEvent.setup();
+    setTool("cable");
+    render(<SymbolPalette />);
+    const select = screen.getByRole("combobox", { name: "Styl" });
+    await user.selectOptions(select, "dot-dash");
+    expect(getEditorState().cableStyle).toBe("dot-dash");
+  });
 });

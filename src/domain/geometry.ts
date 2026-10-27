@@ -1,6 +1,12 @@
-import { GRID_SIZE, type Point, type ScaleReference } from "./types";
+import { GRID_SIZE, type CableStyle, type Point, type ScaleReference } from "./types";
 
 export const SYMBOL_SIZE = 48;
+
+export function cableDash(style: CableStyle): number[] | undefined {
+  if (style === "dashed") return [12, 8];
+  if (style === "dot-dash") return [2, 8, 12, 8];
+  return undefined;
+}
 const LABEL_GAP = 4;
 const LABEL_DY = 6;
 

@@ -54,6 +54,7 @@ export function addCable(
     name?: string;
     description?: string;
     symbolIds?: string[];
+    visible?: boolean;
   },
 ): Project {
   const element: CableRoute = {
@@ -67,6 +68,7 @@ export function addCable(
     name: input.name ?? "Przewód 0",
     description: input.description ?? "",
     symbolIds: input.symbolIds ?? [],
+    visible: input.visible ?? true,
   };
   return syncCableNumbers({ ...project, elements: [...project.elements, element] });
 }

@@ -28,7 +28,7 @@ import {
 import { snapCablePoint, snapPoint } from "../domain/geometry";
 import { createId } from "../domain/ids";
 import { createEmptyProject, defaultSymbolLayerId, isLayerEditable, layerById, layerIdByName } from "../domain/project";
-import { isCable, isSymbol, type OverlayElement, type Point, type Project, type SymbolKind } from "../domain/types";
+import { isCable, isSymbol, type CableStyle, type OverlayElement, type Point, type Project, type SymbolKind } from "../domain/types";
 
 export type Tool = "select" | "pan" | "symbol" | "cable" | "text" | "scale";
 
@@ -59,7 +59,7 @@ export type EditorState = {
   scalePreview: Point | null;
   cableColor: string;
   cableWidth: number;
-  cableStyle: "solid" | "dashed";
+  cableStyle: CableStyle;
   viewport: { width: number; height: number };
   restoreAvailable: boolean;
   undoDepth: number;

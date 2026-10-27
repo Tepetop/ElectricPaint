@@ -253,6 +253,7 @@ describe("migrations", () => {
     expect(migrated.elements.filter(isCable).map((el) => el.name)).toEqual(["Przewód 1", "Oświetlenie salon"]);
     expect(migrated.elements.filter(isCable).every((el) => el.description === "")).toBe(true);
     expect(migrated.elements.filter(isCable).every((el) => el.symbolIds.length === 0)).toBe(true);
+    expect(migrated.elements.filter(isCable).every((el) => el.visible === true)).toBe(true);
     expect(migrated.nextCableSeq).toBe(2);
   });
 

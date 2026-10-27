@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { symbolByKind } from "../catalog/symbols";
 import { formatMeters, lengthInMeters } from "../domain/geometry";
-import { isCable, isSymbol, isText, type CableRoute, type OverlayElement, type ScaleReference } from "../domain/types";
+import { isCable, isSymbol, isText, type CableRoute, type CableStyle, type OverlayElement, type ScaleReference } from "../domain/types";
 import { commitAssignSelectedToCable, commitElementPatch, commitMoveElementsToLayer, useEditor } from "../state/editorStore";
 
 export function PropertiesPanel() {
@@ -97,11 +97,17 @@ function CableProps({ el }: { el: CableRoute }) {
         <input type="number" min={1} max={16} value={el.width} onChange={(e) => commitElementPatch(el.id, { width: Number(e.target.value) || 3 })} />
       </label>
       <label className="field">Styl
-        <select value={el.style} onChange={(e) => commitElementPatch(el.id, { style: e.target.value as "solid" | "dashed" })}>
+        <select value={el.style} onChange={(e) => commitElementPatch(el.id, { style: e.target.value as CableStyle })}>
           <option value="solid">Ciągła</option>
           <option value="dashed">Przerywana</option>
+          <option value="dot-dash">Kropka-kreska</option>
         </select>
       </label>
+      <div className="field">
+        <button type="button" onClick={() => commitElementPatch(el.id, { visible: el.visible === false })}>
+          {el.visible === false ? "Pokaż na schemacie" : "Schowaj na schemacie"}
+        </button>
+      </div>
       <div className="field">Długość: {cableLengthLabel(el.points, scaleReference)}</div>
       <div className="field">Podłączone symbole
         {el.symbolIds.length === 0 && <p className="legend">brak</p>}

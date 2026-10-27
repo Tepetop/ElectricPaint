@@ -23,8 +23,13 @@ export function migrateProject(raw: unknown): Project {
       return { ...withLayer, description: (withLayer as { description?: string }).description ?? "" };
     }
     if (isCable(withLayer as OverlayElement)) {
-      const cable = withLayer as { description?: string; symbolIds?: string[] };
-      return { ...withLayer, description: cable.description ?? "", symbolIds: cable.symbolIds ?? [] };
+      const cable = withLayer as { description?: string; symbolIds?: string[]; visible?: boolean };
+      return {
+        ...withLayer,
+        description: cable.description ?? "",
+        symbolIds: cable.symbolIds ?? [],
+        visible: cable.visible ?? true,
+      };
     }
     return withLayer;
   });

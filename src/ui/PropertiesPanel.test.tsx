@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { isCable, isSymbol } from "../domain/types";
 import { commitAddLayer, connectSymbolToCableDraft, finishCable, getEditorState, placeAt, previewCableSegment, resetEditorForTests, selectIds, setPendingSymbol, setTool, startCableSegment } from "../state/editorStore";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { RightPanel } from "./RightPanel";
 
 function placedSymbol() {
   setPendingSymbol("switch-single");
@@ -132,5 +133,29 @@ describe("PropertiesPanel rotation", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Warstwa" }), target);
     expect(getEditorState().project.elements.every((el) => el.layerId === target)).toBe(true);
     expect(screen.queryByRole("spinbutton", { name: "Obrót" })).not.toBeInTheDocument();
+  });
+
+  it("zmienia styl przewodu na kropka-kreska i chowa/pokazuje przewód na schemacie", async () => {
+    const user = userEvent.setup();
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("expected cable");
+    selectIds([cable.id]);
+    render(<RightPanel />);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Styl" }), "dot-dash");
+    expect(getEditorState().project.elements.find(isCable)?.style).toBe("dot-dash");
+
+    await user.click(screen.getByRole("button", { name: "Schowaj na schemacie" }));
+    expect(getEditorState().project.elements.find(isCable)?.visible).toBe(false);
+    expect(screen.getByRole("button", { name: "Pokaż na schemacie" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pokaż" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pokaż" }));
+    expect(getEditorState().project.elements.find(isCable)?.visible).toBe(true);
+    expect(screen.getByRole("button", { name: "Schowaj" })).toBeInTheDocument();
   });
 });

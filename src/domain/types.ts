@@ -45,7 +45,7 @@ export type SymbolElement = {
   labelOffset?: Point;
 };
 
-export type CableStyle = "solid" | "dashed";
+export type CableStyle = "solid" | "dashed" | "dot-dash";
 
 export type CableRoute = {
   type: "cable";
@@ -58,6 +58,7 @@ export type CableRoute = {
   name: string;
   description: string;
   symbolIds: string[];
+  visible?: boolean;
 };
 
 export type TextElement = {
