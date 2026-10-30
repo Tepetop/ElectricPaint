@@ -1,4 +1,5 @@
-import { GRID_SIZE, type CableStyle, type Point, type ScaleReference } from "./types";
+import { symbolRole } from "./numbering";
+import { GRID_SIZE, type CableStyle, type Point, type ScaleReference, type SymbolKind } from "./types";
 
 export const SYMBOL_SIZE = 48;
 
@@ -9,9 +10,26 @@ export function cableDash(style: CableStyle): number[] | undefined {
 }
 const LABEL_GAP = 4;
 const LABEL_DY = 6;
+const LABEL_DX = 8;
+const LABEL_HEIGHT = 12;
+const NORTH_GAP = 2;
 
-function localLabelPoint(scale: number, offset?: Point): Point {
+function northTopRatio(kind?: SymbolKind): number | null {
+  if (!kind) return null;
+  const role = symbolRole(kind);
+  if (role !== "socket" && role !== "outlet") return null;
+  return kind === "socket-antenna" ? 0.19 : 0.35;
+}
+
+function localLabelPoint(scale: number, offset?: Point, kind?: SymbolKind): Point {
   const size = SYMBOL_SIZE * scale;
+  const topRatio = northTopRatio(kind);
+  if (topRatio != null) {
+    return {
+      x: size / 2 - LABEL_DX + (offset?.x ?? 0),
+      y: topRatio * size - LABEL_HEIGHT - NORTH_GAP + (offset?.y ?? 0),
+    };
+  }
   return {
     x: size + LABEL_GAP + (offset?.x ?? 0),
     y: size / 2 - LABEL_DY + (offset?.y ?? 0),
@@ -24,8 +42,9 @@ export function symbolLabelPosition(el: {
   scale: number;
   rotation?: number;
   labelOffset?: Point;
+  kind?: SymbolKind;
 }): Point {
-  const local = localLabelPoint(el.scale, el.labelOffset);
+  const local = localLabelPoint(el.scale, el.labelOffset, el.kind);
   const rad = ((el.rotation ?? 0) * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
@@ -36,7 +55,7 @@ export function symbolLabelPosition(el: {
 }
 
 export function labelOffsetFromWorld(
-  el: { x: number; y: number; scale: number; rotation?: number },
+  el: { x: number; y: number; scale: number; rotation?: number; kind?: SymbolKind },
   world: Point,
 ): Point {
   const rad = (-(el.rotation ?? 0) * Math.PI) / 180;
@@ -44,7 +63,7 @@ export function labelOffsetFromWorld(
   const sin = Math.sin(rad);
   const dx = world.x - el.x;
   const dy = world.y - el.y;
-  const base = localLabelPoint(el.scale);
+  const base = localLabelPoint(el.scale, undefined, el.kind);
   return {
     x: dx * cos - dy * sin - base.x,
     y: dx * sin + dy * cos - base.y,

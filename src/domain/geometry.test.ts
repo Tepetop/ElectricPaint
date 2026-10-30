@@ -48,6 +48,43 @@ describe("symbolLabelPosition", () => {
     const back = symbolLabelPosition({ ...el, labelOffset: labelOffsetFromWorld(el, world) });
     expect(Math.hypot(back.x - world.x, back.y - world.y)).toBeLessThanOrEqual(1);
   });
+
+  it("gniazdo i wypust mają etykietę nad obrysem, od północy", () => {
+    const northX = base.x + SYMBOL_SIZE / 2 - 8;
+    const northY = base.y + 0.35 * SYMBOL_SIZE - 12 - 2;
+    const outlineTop = {
+      "socket-single": 0.357 * SYMBOL_SIZE,
+      "socket-double": 0.357 * SYMBOL_SIZE,
+      "outlet-single-phase": 0.37 * SYMBOL_SIZE,
+    } as const;
+    for (const kind of ["socket-single", "socket-double", "outlet-single-phase"] as const) {
+      const pos = symbolLabelPosition({ ...base, kind });
+      expect(pos.x).toBeCloseTo(northX);
+      expect(pos.y).toBeCloseTo(northY);
+      expect(pos.y - base.y + 12).toBeLessThan(outlineTop[kind]);
+    }
+    const antenna = symbolLabelPosition({ ...base, kind: "socket-antenna" });
+    expect(antenna.x).toBeCloseTo(northX);
+    expect(antenna.y).toBeCloseTo(base.y + 0.19 * SYMBOL_SIZE - 12 - 2);
+    expect(antenna.y - base.y + 12).toBeLessThan(0.193 * SYMBOL_SIZE);
+  });
+
+  it("łącznik zostaje po prawej stronie", () => {
+    expect(symbolLabelPosition({ ...base, kind: "switch-single" })).toEqual({
+      x: 100 + SYMBOL_SIZE + 4,
+      y: 80 + SYMBOL_SIZE / 2 - 6,
+    });
+  });
+
+  it("przesunięcie gniazda i wypustu wraca po obrocie i skali", () => {
+    for (const kind of ["socket-single", "outlet-three-phase"] as const) {
+      const el = { ...base, kind, rotation: 90, scale: 1.5 };
+      const world = symbolLabelPosition({ ...el, labelOffset: { x: 18, y: -10 } });
+      const back = labelOffsetFromWorld(el, world);
+      expect(back.x).toBeCloseTo(18);
+      expect(back.y).toBeCloseTo(-10);
+    }
+  });
 });
 
 describe("lengthInMeters", () => {
