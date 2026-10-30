@@ -44,7 +44,7 @@ export function SymbolPalette() {
     return SYMBOL_CATALOG.filter((item) => !q || item.name.toLowerCase().includes(q) || item.kind.includes(q));
   }, [query]);
 
-  const categories = ["switches", "sockets", "lighting", "other"] as SymbolCategory[];
+  const categories = ["switches", "sockets", "outlets", "lighting", "other"] as SymbolCategory[];
 
   return (
     <aside className="left-panel">

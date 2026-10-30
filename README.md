@@ -20,7 +20,7 @@ Paleta zawiera łączniki, gniazda, oświetlenie i pozostałe symbole. Pole **Sk
 
 ### Warstwy
 
-Nowy rzut ma warstwy Gniazda, Oświetlenie, Łączniki, Przewody i Inne. Warstwę można dodać, nazwać, pokazać, ukryć, zablokować i zmienić kolejność. Nowe symbole trafiają na warstwę zgodną z rodzajem (gniazda, oświetlenie, łączniki albo pozostałe), przewody na warstwę Przewody.
+Nowy rzut ma warstwy Gniazda, Wypusty, Oświetlenie, Łączniki, Przewody i Inne. Warstwę można dodać, nazwać, pokazać, ukryć, zablokować i zmienić kolejność. Nowe symbole trafiają na warstwę zgodną z rodzajem (gniazda, wypusty, oświetlenie, łączniki albo pozostałe), przewody na warstwę Przewody.
 
 W panelu właściwości zaznaczony element — albo całe zaznaczenie — da się przenieść na inną warstwę, także zablokowaną. Element na zablokowanej warstwie zostaje na rzucie i nie jest edytowalny, dopóki warstwa jest zablokowana. Po przeniesieniu na ukrytą warstwę znika ramka zaznaczenia.
 

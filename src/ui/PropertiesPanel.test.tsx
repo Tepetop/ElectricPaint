@@ -94,7 +94,7 @@ describe("PropertiesPanel rotation", () => {
     if (!cable) throw new Error("expected cable");
     selectIds([cable.id]);
     render(<PropertiesPanel />);
-    expect(screen.getByText(`${symbol.label} (Łącznik jednobiegunowy)`)).toBeInTheDocument();
+    expect(screen.getByText(`${symbol.label} (Łącznik jednobiegunowy IP20)`)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Odłącz" }));
     const updated = getEditorState().project.elements.find(isCable);
     expect(updated?.symbolIds).toEqual([]);

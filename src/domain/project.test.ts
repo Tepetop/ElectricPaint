@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { addCable, addGroup, addLayer, addSymbol, addText, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteGroup, deleteLayer, duplicateElements, moveElements, moveElementsToLayer, scaleAllSymbols } from "./commands";
 import { migrateProject } from "./migrations";
 import { allocateLabel, symbolRole } from "./numbering";
-import { createEmptyProject } from "./project";
+import { createEmptyProject, defaultSymbolLayerId } from "./project";
 import { SCHEMA_VERSION } from "./types";
 import { isCable, isSymbol } from "./types";
 
@@ -18,6 +18,12 @@ describe("numbering", () => {
     expect(symbolRole("socket-double")).toBe("socket");
     expect(symbolRole("ground")).toBe("other");
     expect(symbolRole("distribution-board")).toBe("other");
+    expect(symbolRole("outlet-single-phase")).toBe("outlet");
+    expect(symbolRole("switch-roller")).toBe("switch");
+    expect(allocateLabel(createEmptyProject(), "outlet-three-phase").label).toBe("W1");
+    expect(allocateLabel(createEmptyProject(), "switch-roller").label).toBe("R1");
+    const outlets = project.layers.find((layer) => layer.name === "Wypusty");
+    expect(defaultSymbolLayerId(project, "outlet-single-phase", project.layers[0].id)).toBe(outlets?.id);
   });
 
   it("po usunięciu bierze najmniejszy wolny numer z symboli na rzucie", () => {
@@ -146,7 +152,7 @@ describe("commands", () => {
     const second = project.layers[1].id;
     project = addSymbol(project, { kind: "socket-single", layerId: second, x: 1, y: 1 });
     project = deleteLayer(project, second, { type: "move-to", targetId: first });
-    expect(project.layers).toHaveLength(5);
+    expect(project.layers).toHaveLength(6);
     expect(project.elements[0].layerId).toBe(first);
   });
 

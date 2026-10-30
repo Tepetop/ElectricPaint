@@ -421,21 +421,22 @@ describe("automatic layers", () => {
     return layer.id;
   }
 
-  it("creates five named layers on each new drawing", () => {
-    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
+  it("creates six named layers on each new drawing", () => {
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Wypusty", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
     newProject();
-    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Wypusty", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
   });
 
   it("routes symbols, cables and text independently of the active layer", () => {
     setActiveLayer(layerId("Inne"));
-    for (const kind of ["socket-single", "switch-single", "wall-light", "ground"] as const) {
+    for (const kind of ["socket-single", "switch-single", "wall-light", "ground", "outlet-single-phase"] as const) {
       setPendingSymbol(kind);
       placeAt({ x: 10, y: 10 });
     }
     expect(getEditorState().project.elements.map((element) => element.layerId)).toEqual([
-      layerId("Gniazda"), layerId("Łączniki"), layerId("Oświetlenie"), layerId("Inne"),
+      layerId("Gniazda"), layerId("Łączniki"), layerId("Oświetlenie"), layerId("Inne"), layerId("Wypusty"),
     ]);
+    expect(getEditorState().project.elements.at(-1)).toMatchObject({ type: "symbol", label: "W1" });
     setTool("cable");
     startCableSegment({ x: 0, y: 0 });
     startCableSegment({ x: 20, y: 0 });

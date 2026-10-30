@@ -14,13 +14,14 @@ describe("SymbolPalette", () => {
     const user = userEvent.setup();
     render(<SymbolPalette />);
     expect(screen.getByRole("button", { name: /Żarówka/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Przycisk zwierny/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Przycisk zwierny IP20" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Gniazdo wtyczkowe antenowe/ })).toBeInTheDocument();
+    expect(screen.getByText("Wypusty")).toBeInTheDocument();
     await user.type(screen.getByPlaceholderText("Szukaj symbolu…"), "schod");
-    expect(screen.getByRole("button", { name: "Łącznik schodowy" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Łącznik schodowy podwójny" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Łącznik schodowy IP20" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Łącznik schodowy podwójny IP20" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Gniazdo wtyczkowe/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Łącznik schodowy" }));
+    await user.click(screen.getByRole("button", { name: "Łącznik schodowy IP20" }));
     expect(getEditorState().pendingSymbolKind).toBe("switch-stair");
     expect(getEditorState().tool).toBe("symbol");
   });

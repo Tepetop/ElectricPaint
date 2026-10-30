@@ -15,11 +15,11 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
       assignments: project.elements.map((element) => names.get(element.layerId)),
     };
   })).toEqual({
-    layers: ["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"],
+    layers: ["Gniazda", "Wypusty", "Oświetlenie", "Łączniki", "Przewody", "Inne"],
     assignments: ["Łączniki", "Oświetlenie", "Gniazda", "Przewody"],
   });
 
-  await page.getByRole("button", { name: "Łącznik schodowy", exact: true }).click();
+  await page.getByRole("button", { name: "Łącznik schodowy IP20", exact: true }).click();
   await page.evaluate(() => {
     window.__ep?.placeAt({ x: 520, y: 220 });
     const created = window.__ep?.getEditorState().project.elements.at(-1);
@@ -41,7 +41,7 @@ test("import, symbole, grupa, trasa, warstwy i eksport", async ({ page }) => {
   await expect(page.getByText("Legenda tras")).toBeVisible();
 
   await page.getByRole("button", { name: "Dodaj", exact: true }).click();
-  await expect(page.locator('input[value="Warstwa 6"]')).toBeVisible();
+  await expect(page.locator('input[value="Warstwa 7"]')).toBeVisible();
 
   await expect(page.getByRole("button", { name: "Eksport PNG" })).toHaveCount(0);
 
@@ -61,13 +61,13 @@ test("zakładki, ponowne numerowanie grup i dopasowanie widoku", async ({ page }
   await expect(page.getByRole("tab")).toHaveCount(0);
   await page.getByRole("button", { name: "Nowy projekt" }).click();
   await expect(page.getByRole("tab")).toHaveCount(1);
-  await page.getByRole("button", { name: "Łącznik schodowy", exact: true }).click();
+  await page.getByRole("button", { name: "Łącznik schodowy IP20", exact: true }).click();
   await page.evaluate(() => window.__ep?.placeAt({ x: 100, y: 100 }));
   await page.getByRole("button", { name: "Nowy", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveCount(2);
   expect(await page.evaluate(() => window.__ep?.getEditorState().project.elements.length)).toBe(0);
 
-  await page.getByRole("button", { name: "Gniazdo wtyczkowe pojedyncze", exact: true }).click();
+  await page.getByRole("button", { name: "Gniazdo wtykowe IP20", exact: true }).click();
   await page.evaluate(() => window.__ep?.placeAt({ x: 200, y: 200 }));
   await page.getByRole("tab", { name: /Nowy rzut 1/ }).click();
   expect(await page.evaluate(() => {
@@ -134,7 +134,7 @@ test("wybór wielu symboli i wspólna zmiana warstwy", async ({ page }) => {
 test("eksport PDF zachowuje polskie znaki i dzieli tabelę symboli na strony", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Przykład" }).click();
-  await page.getByRole("button", { name: "Gniazdo wtyczkowe podwójne", exact: true }).click();
+  await page.getByRole("button", { name: "Gniazdo wtykowe podwójne IP20", exact: true }).click();
   await page.evaluate(() => {
     for (let index = 0; index < 40; index++) {
       window.__ep!.placeAt({ x: 100 + (index % 10) * 80, y: 100 + Math.floor(index / 10) * 70 });

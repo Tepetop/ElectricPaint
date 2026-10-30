@@ -15,13 +15,33 @@ export type SymbolKind =
   | "switch-single"
   | "switch-triple"
   | "switch-double"
+  | "switch-double-pole"
   | "switch-stair"
   | "switch-stair-double"
   | "switch-cross"
+  | "switch-cross-double"
   | "switch-push"
+  | "switch-roller"
+  | "switch-single-ip44"
+  | "switch-double-ip44"
+  | "switch-double-pole-ip44"
+  | "switch-stair-ip44"
+  | "switch-stair-double-ip44"
+  | "switch-cross-ip44"
+  | "switch-cross-double-ip44"
+  | "switch-push-ip44"
   | "socket-single"
+  | "socket-single-ip44"
   | "socket-double"
+  | "socket-double-ip44"
+  | "socket-400v"
+  | "socket-fridge"
+  | "socket-washer"
+  | "socket-dryer"
+  | "socket-dishwasher"
   | "socket-antenna"
+  | "outlet-single-phase"
+  | "outlet-three-phase"
   | "luminaire"
   | "wall-light"
   | "ground"
@@ -29,7 +49,7 @@ export type SymbolKind =
   | "meter"
   | "distribution-board";
 
-export type SymbolRole = "switch" | "socket" | "luminaire" | "other";
+export type SymbolRole = "switch" | "socket" | "outlet" | "luminaire" | "other";
 
 export type SymbolElement = {
   type: "symbol";

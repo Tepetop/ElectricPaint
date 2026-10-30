@@ -4,13 +4,33 @@ const PREFIX: Record<SymbolKind, string> = {
   "switch-single": "L",
   "switch-triple": "L",
   "switch-double": "L",
+  "switch-double-pole": "L",
   "switch-stair": "L",
   "switch-stair-double": "L",
   "switch-cross": "L",
+  "switch-cross-double": "L",
   "switch-push": "L",
+  "switch-roller": "R",
+  "switch-single-ip44": "L",
+  "switch-double-ip44": "L",
+  "switch-double-pole-ip44": "L",
+  "switch-stair-ip44": "L",
+  "switch-stair-double-ip44": "L",
+  "switch-cross-ip44": "L",
+  "switch-cross-double-ip44": "L",
+  "switch-push-ip44": "L",
   "socket-single": "G",
+  "socket-single-ip44": "G",
   "socket-double": "G",
+  "socket-double-ip44": "G",
+  "socket-400v": "G",
+  "socket-fridge": "G",
+  "socket-washer": "G",
+  "socket-dryer": "G",
+  "socket-dishwasher": "G",
   "socket-antenna": "G",
+  "outlet-single-phase": "W",
+  "outlet-three-phase": "W",
   luminaire: "O",
   "wall-light": "Z",
   ground: "U",
@@ -24,6 +44,7 @@ const LUMINAIRES: ReadonlySet<SymbolKind> = new Set(["luminaire", "wall-light"])
 export function symbolRole(kind: SymbolKind): SymbolRole {
   if (kind.startsWith("switch")) return "switch";
   if (kind.startsWith("socket")) return "socket";
+  if (kind.startsWith("outlet")) return "outlet";
   if (LUMINAIRES.has(kind)) return "luminaire";
   return "other";
 }
