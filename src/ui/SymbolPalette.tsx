@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORY_LABELS, SYMBOL_CATALOG, symbolDataUrl, type SymbolCategory } from "../catalog/symbols";
 import { metersToMm, mmToMeters } from "../domain/geometry";
-import { isSymbol } from "../domain/types";
+import { isSymbol, type CableStyle } from "../domain/types";
 import {
   commitApplySymbolScale,
   commitScaleAllSymbols,
@@ -22,6 +22,7 @@ export function SymbolPalette() {
   const cableColor = useEditor((s) => s.cableColor);
   const cableWidth = useEditor((s) => s.cableWidth);
   const cableStyle = useEditor((s) => s.cableStyle);
+  const cableDraftSymbolIds = useEditor((s) => s.cableDraftSymbolIds);
   const defaultSymbolScale = useEditor((s) => s.project.defaultSymbolScale);
   const scaleReference = useEditor((s) => s.project.scaleReference);
   const selectedIds = useEditor((s) => s.selectedIds);
@@ -43,7 +44,7 @@ export function SymbolPalette() {
     return SYMBOL_CATALOG.filter((item) => !q || item.name.toLowerCase().includes(q) || item.kind.includes(q));
   }, [query]);
 
-  const categories = ["switches", "sockets", "lighting", "other"] as SymbolCategory[];
+  const categories = ["switches", "sockets", "outlets", "lighting", "other"] as SymbolCategory[];
 
   return (
     <aside className="left-panel">
@@ -113,12 +114,19 @@ export function SymbolPalette() {
             <input type="number" min={1} max={12} value={cableWidth} onChange={(e) => setCableStyle({ cableWidth: Number(e.target.value) || 3 })} />
           </label>
           <label className="field">Styl
-            <select value={cableStyle} onChange={(e) => setCableStyle({ cableStyle: e.target.value as "solid" | "dashed" })}>
+            <select value={cableStyle} onChange={(e) => setCableStyle({ cableStyle: e.target.value as CableStyle })}>
               <option value="solid">Ciągła</option>
               <option value="dashed">Przerywana</option>
+              <option value="dot-dash">Kropka-kreska</option>
             </select>
           </label>
-          <p className="legend">Przytrzymaj LPM i ciągnij prosty odcinek. Puszczenie zatwierdza, kolejny odcinek dokłada się od końca. PPM kończy trasę.</p>
+          <p className="legend">Przytrzymaj LPM i ciągnij prosty odcinek. Puszczenie zatwierdza, kolejny odcinek dokłada się od końca. PPM kończy trasę. Ctrl+klik na symbolu — podłącz do przewodu.</p>
+          {cableDraftSymbolIds.length > 0 && (
+            <p className="legend">Podłączone: {cableDraftSymbolIds.map((id) => {
+              const symbol = elements.find((el) => el.id === id);
+              return symbol && isSymbol(symbol) ? symbol.label : id;
+            }).join(", ")}</p>
+          )}
         </div>
       )}
       <h2 className="panel-title">Symbole</h2>

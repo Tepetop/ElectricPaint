@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
-import { SYMBOL_SIZE, formatScaleLength, labelOffsetFromWorld, polylineToFlat, snapPoint, symbolLabelPosition } from "../domain/geometry";
+import { SYMBOL_SIZE, cableDash, findClosestCableSegment, formatScaleLength, labelOffsetFromWorld, polylineToFlat, segmentMidpoint, snapCablePoint, snapPoint, symbolLabelPosition } from "../domain/geometry";
 import { GRID_SIZE, isCable, isSymbol, isText, type OverlayElement, type Point } from "../domain/types";
 import {
   canvasPointFromScreen,
@@ -11,7 +11,9 @@ import {
   commitElementPatch,
   commitMove,
   commitCableSegment,
+  connectSymbolToCableDraft,
   finishCable,
+  insertCablePoint,
   placeAt,
   previewCableSegment,
   previewScalePoint,
@@ -129,7 +131,14 @@ export function StageCanvas() {
     return () => window.removeEventListener("mouseup", onUp);
   }, []);
 
-  const visible = project.elements.filter((el) => !hidden.has(el.layerId));
+  const visible = project.elements.filter((el) => !hidden.has(el.layerId) && (!isCable(el) || el.visible !== false));
+  const editingCable = (el: OverlayElement) =>
+    isCable(el) && selectedIds.includes(el.id) && !locked.has(el.layerId) && tool === "select";
+  const painted = [
+    ...visible.filter((el) => isCable(el) && !editingCable(el)),
+    ...visible.filter((el) => !isCable(el)),
+    ...visible.filter(editingCable),
+  ];
   const viewport = useEditor((s) => s.viewport);
 
   const gridLines = useMemo(() => {
@@ -190,6 +199,10 @@ export function StageCanvas() {
     }
     if (evt.evt.button !== 0) return;
     if (tool === "cable") {
+      if (evt.evt.ctrlKey && evt.target.getAttr("epType") === "symbol") {
+        connectSymbolToCableDraft(evt.target.getAttr("epId"));
+        return;
+      }
       drawingCable.current = true;
       startCableSegment(toCanvas(evt));
       return;
@@ -211,23 +224,22 @@ export function StageCanvas() {
   }
 
   function onMouseMove(evt: Konva.KonvaEventObject<MouseEvent>) {
-    if (drawingCable.current) {
-      if ((evt.evt.buttons & 1) === 0) {
-        endCableStroke();
-        return;
-      }
-      previewCableSegment(toCanvas(evt));
-      return;
-    }
-    if (tool === "scale" && scaleDraft.length > 0) {
-      previewScalePoint(toCanvas(evt));
-    }
     if (panning && lastPointer.current) {
       const dx = evt.evt.clientX - lastPointer.current.x;
       const dy = evt.evt.clientY - lastPointer.current.y;
       lastPointer.current = { x: evt.evt.clientX, y: evt.evt.clientY };
       setPan({ x: pan.x + dx, y: pan.y + dy });
       return;
+    }
+    if (tool === "cable" && cableDraft.length > 0) {
+      if (drawingCable.current && (evt.evt.buttons & 1) === 0) {
+        endCableStroke();
+      }
+      previewCableSegment(toCanvas(evt));
+      return;
+    }
+    if (tool === "scale" && scaleDraft.length > 0) {
+      previewScalePoint(toCanvas(evt));
     }
     if (marqueeStart.current) {
       const start = marqueeStart.current;
@@ -307,7 +319,7 @@ export function StageCanvas() {
             {gridLines.map((pts, i) => (
               <Line key={i} points={pts} stroke="#00000018" strokeWidth={1} listening={false} />
             ))}
-            {visible.map((el) => {
+            {painted.map((el) => {
               const isLocked = locked.has(el.layerId);
               const selected = selectedIds.includes(el.id);
               if (isCable(el)) {
@@ -318,7 +330,6 @@ export function StageCanvas() {
                     selected={selected}
                     locked={isLocked}
                     tool={tool}
-                    snap={snap}
                     onSelect={(shiftKey) => selectElement(el.id, shiftKey)}
                     onRef={(node) => {
                       if (node) nodeRefs.current.set(el.id, node);
@@ -352,7 +363,7 @@ export function StageCanvas() {
                     }}
                     onDragEnd={(e) => {
                       const origin = dragOrigin.current.get(el.id) ?? { x: el.x, y: el.y };
-                      const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
+                      const pos = snapCablePoint({ x: e.target.x(), y: e.target.y() });
                       commitMove([el.id], pos.x - origin.x, pos.y - origin.y);
                     }}
                     onTransformEnd={(e) => {
@@ -367,6 +378,7 @@ export function StageCanvas() {
                     ref={(node) => {
                       if (node) {
                         node.setAttr("epType", "symbol");
+                        node.setAttr("epId", el.id);
                         nodeRefs.current.set(el.id, node);
                       } else nodeRefs.current.delete(el.id);
                     }}
@@ -425,11 +437,10 @@ export function StageCanvas() {
                     selectElement(el.id, e.evt.shiftKey);
                   }}
                   onDragEnd={(e) => {
-                    const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
-                    const offset = labelOffsetFromWorld(el, pos);
-                    commitElementPatch(el.id, {
-                      labelOffset: { x: Math.round(offset.x), y: Math.round(offset.y) },
-                    });
+                    const offset = labelOffsetFromWorld(el, snapCablePoint({ x: e.target.x(), y: e.target.y() }));
+                    const labelOffset = { x: Math.round(offset.x), y: Math.round(offset.y) };
+                    e.target.position(symbolLabelPosition({ ...el, labelOffset }));
+                    commitElementPatch(el.id, { labelOffset });
                   }}
                 />
               );
@@ -439,7 +450,7 @@ export function StageCanvas() {
                 points={polylineToFlat(cableDraft)}
                 stroke={cableColor}
                 strokeWidth={cableWidth}
-                dash={cableStyle === "dashed" ? [12, 8] : undefined}
+                dash={cableDash(cableStyle)}
                 lineCap="round"
                 lineJoin="round"
                 listening={false}
@@ -468,7 +479,7 @@ export function StageCanvas() {
             {selectedIds
               .filter((id) => {
                 const el = project.elements.find((item) => item.id === id);
-                return Boolean(el && !isCable(el) && !locked.has(el.layerId));
+                return Boolean(el && !isCable(el) && !locked.has(el.layerId) && (tool === "select" || tool === "symbol"));
               })
               .map((id) => (
                 <SelectionBox key={id} nodeId={id} getNode={(nodeId) => nodeRefs.current.get(nodeId)} />
@@ -549,7 +560,6 @@ function CableShape({
   selected,
   locked,
   tool,
-  snap,
   onSelect,
   onRef,
 }: {
@@ -557,21 +567,32 @@ function CableShape({
   selected: boolean;
   locked: boolean;
   tool: string;
-  snap: boolean;
   onSelect: (shiftKey: boolean) => void;
   onRef: (node: Konva.Line | null) => void;
 }) {
+  const [editPoints, setEditPoints] = useState<Point[] | null>(null);
+  const editPointsRef = useRef<Point[] | null>(null);
+  const lineRef = useRef<Konva.Line | null>(null);
+  const dragged = useRef(false);
+  const points = editPoints ?? el.points;
+  const canEdit = selected && !locked && tool === "select";
+
+  function previewLine(next: Point[]) {
+    lineRef.current?.points(polylineToFlat(next));
+  }
+
   return (
     <>
       <Line
         ref={(node) => {
+          lineRef.current = node;
           if (node) node.setAttr("epType", "cable");
           onRef(node);
         }}
-        points={polylineToFlat(el.points)}
+        points={polylineToFlat(points)}
         stroke={el.color}
         strokeWidth={el.width}
-        dash={el.style === "dashed" ? [12, 8] : undefined}
+        dash={cableDash(el.style)}
         hitStrokeWidth={16}
         lineCap="round"
         lineJoin="round"
@@ -580,27 +601,76 @@ function CableShape({
           if (locked || tool !== "select") return;
           onSelect(e.evt.shiftKey);
         }}
+        onDblClick={(e) => {
+          e.cancelBubble = true;
+          if (!canEdit) return;
+          const pointer = e.target.getStage()?.getPointerPosition();
+          if (!pointer) return;
+          const hit = findClosestCableSegment(el.points, canvasPointFromScreen(pointer));
+          if (hit) insertCablePoint(el.id, hit.index, hit.point);
+        }}
       />
-      {el.name && el.points[0] && (
-        <Text x={el.points[0].x + 8} y={el.points[0].y - 16} text={el.name} fill={el.color} fontSize={13} listening={false} />
-      )}
-      {selected && !locked &&
-        el.points.map((point, index) => (
+      {canEdit &&
+        points.map((point, index) => (
           <Circle
-            key={index}
+            key={`v-${index}`}
             x={point.x}
             y={point.y}
             radius={6}
             fill="#fff"
             stroke={el.color}
             draggable
-            onDragEnd={(e) => {
-              const pos = snapPoint({ x: e.target.x(), y: e.target.y() }, snap);
-              const points = el.points.map((p, i) => (i === index ? pos : p));
-              commitCablePoints(el.id, points);
+            onDragMove={(e) => {
+              dragged.current = true;
+              const pos = snapCablePoint({ x: e.target.x(), y: e.target.y() });
+              e.target.position(pos);
+              const base = editPointsRef.current ?? el.points;
+              const next = base.map((item, i) => (i === index ? pos : item));
+              editPointsRef.current = next;
+              setEditPoints(next);
+            }}
+            onDragEnd={() => {
+              const next = editPointsRef.current;
+              if (next) commitCablePoints(el.id, next);
+              editPointsRef.current = null;
+              setEditPoints(null);
             }}
           />
         ))}
+      {canEdit &&
+        el.points.slice(0, -1).map((point, index) => {
+          const mid = segmentMidpoint(point, el.points[index + 1]);
+          return (
+            <Circle
+              key={`m-${index}`}
+              x={mid.x}
+              y={mid.y}
+              radius={4}
+              fill="#fff"
+              stroke={el.color}
+              opacity={0.85}
+              draggable
+              onDragMove={(e) => {
+                dragged.current = true;
+                const candidate = snapCablePoint({ x: e.target.x(), y: e.target.y() });
+                e.target.position(candidate);
+                previewLine([...el.points.slice(0, index + 1), candidate, ...el.points.slice(index + 1)]);
+              }}
+              onDragEnd={(e) => {
+                insertCablePoint(el.id, index, snapCablePoint({ x: e.target.x(), y: e.target.y() }));
+                dragged.current = true;
+              }}
+              onClick={(e) => {
+                e.cancelBubble = true;
+                if (dragged.current) {
+                  dragged.current = false;
+                  return;
+                }
+                insertCablePoint(el.id, index, mid);
+              }}
+            />
+          );
+        })}
     </>
   );
 }

@@ -4,13 +4,33 @@ const PREFIX: Record<SymbolKind, string> = {
   "switch-single": "L",
   "switch-triple": "L",
   "switch-double": "L",
+  "switch-double-pole": "L",
   "switch-stair": "L",
   "switch-stair-double": "L",
   "switch-cross": "L",
+  "switch-cross-double": "L",
   "switch-push": "L",
+  "switch-roller": "R",
+  "switch-single-ip44": "L",
+  "switch-double-ip44": "L",
+  "switch-double-pole-ip44": "L",
+  "switch-stair-ip44": "L",
+  "switch-stair-double-ip44": "L",
+  "switch-cross-ip44": "L",
+  "switch-cross-double-ip44": "L",
+  "switch-push-ip44": "L",
   "socket-single": "G",
+  "socket-single-ip44": "G",
   "socket-double": "G",
+  "socket-double-ip44": "G",
+  "socket-400v": "G",
+  "socket-fridge": "G",
+  "socket-washer": "G",
+  "socket-dryer": "G",
+  "socket-dishwasher": "G",
   "socket-antenna": "G",
+  "outlet-single-phase": "W",
+  "outlet-three-phase": "W",
   luminaire: "O",
   "wall-light": "Z",
   ground: "U",
@@ -24,6 +44,7 @@ const LUMINAIRES: ReadonlySet<SymbolKind> = new Set(["luminaire", "wall-light"])
 export function symbolRole(kind: SymbolKind): SymbolRole {
   if (kind.startsWith("switch")) return "switch";
   if (kind.startsWith("socket")) return "socket";
+  if (kind.startsWith("outlet")) return "outlet";
   if (LUMINAIRES.has(kind)) return "luminaire";
   return "other";
 }
@@ -64,7 +85,20 @@ export function allocateGroupDesignation(project: Project): { designation: strin
   return { designation: `S${next}`, nextGroupSeq: next + 1 };
 }
 
-export function allocateCableName(project: Project): { name: string; nextCableSeq: number } {
-  const next = project.nextCableSeq || 1;
-  return { name: `Przewód ${next}`, nextCableSeq: next + 1 };
+const AUTO_CABLE_NAME = /^Przewód \d+$/;
+
+export function syncCableNumbers(project: Project): Project {
+  let count = 0;
+  let changed = false;
+  const elements = project.elements.map((el) => {
+    if (el.type !== "cable" || !AUTO_CABLE_NAME.test(el.name)) return el;
+    count += 1;
+    const name = `Przewód ${count}`;
+    if (el.name === name) return el;
+    changed = true;
+    return { ...el, name };
+  });
+  const nextCableSeq = count + 1;
+  if (!changed && project.nextCableSeq === nextCableSeq) return project;
+  return { ...project, elements: changed ? elements : project.elements, nextCableSeq };
 }

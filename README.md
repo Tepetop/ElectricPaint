@@ -8,7 +8,7 @@ Lokalna, desktopowa aplikacja do nanoszenia symboli i tras instalacji elektryczn
 
 Każda zakładka to osobny rzut i osobny plik `.epaint` — na przykład kolejne piętra. **Nowy**, **Otwórz**, **Przykład** i Ctrl+N dodają zakładkę, a nie zastępują otwartego rzutu. **Zapisz**, **Zapisz jako** i eksport dotyczą aktywnej zakładki.
 
-Przełączenie zakładki zostawia przy niej zaznaczenie, szkic przewodu, szkic skali, powiększenie, przesunięcie widoku oraz własną historię cofania. Zamknięcie ostatniej zakładki zostawia pusty rzut. Otwarcie pliku, który jest już w innej zakładce, pokazuje ostrzeżenie, bo drugi zapis nadpisze ten sam plik.
+Aplikacja startuje od ekranu startowego. Żeby otworzyć rzut, trzeba kliknąć **Nowy projekt**, **Otwórz projekt** albo **Przykład**. Przełączenie zakładki zostawia przy niej zaznaczenie, szkic przewodu, szkic skali, powiększenie, przesunięcie widoku oraz własną historię cofania. Zamknięcie ostatniej zakładki wraca do ekranu startowego, a nie do pustego rzutu. Otwarcie pliku, który jest już w innej zakładce, pokazuje ostrzeżenie, bo drugi zapis nadpisze ten sam plik.
 
 Niezapisane zakładki trafiają do autosave co 20 sekund. Po ponownym uruchomieniu baner **Przywróć** odtwarza je wszystkie. Zapis jednej zakładki nie kasuje autosave pozostałych.
 
@@ -20,7 +20,7 @@ Paleta zawiera łączniki, gniazda, oświetlenie i pozostałe symbole. Pole **Sk
 
 ### Warstwy
 
-Nowy rzut ma warstwy Gniazda, Oświetlenie, Łączniki, Przewody i Inne. Warstwę można dodać, nazwać, pokazać, ukryć, zablokować i zmienić kolejność. Nowe symbole trafiają na warstwę zgodną z rodzajem (gniazda, oświetlenie, łączniki albo pozostałe), przewody na warstwę Przewody.
+Nowy rzut ma warstwy Gniazda, Wypusty, Oświetlenie, Łączniki, Przewody i Inne. Warstwę można dodać, nazwać, pokazać, ukryć, zablokować i zmienić kolejność. Nowe symbole trafiają na warstwę zgodną z rodzajem (gniazda, wypusty, oświetlenie, łączniki albo pozostałe), przewody na warstwę Przewody.
 
 W panelu właściwości zaznaczony element — albo całe zaznaczenie — da się przenieść na inną warstwę, także zablokowaną. Element na zablokowanej warstwie zostaje na rzucie i nie jest edytowalny, dopóki warstwa jest zablokowana. Po przeniesieniu na ukrytą warstwę znika ramka zaznaczenia.
 
@@ -28,17 +28,19 @@ Aby przenieść kilka symboli naraz, włącz **Wybór wielu** w lewym panelu i k
 
 ### Grupy sterowania
 
-Grupa łączy łączniki z oprawami i po **Zatwierdź** wpisuje wspólne oznaczenie na schemacie. **Zwiń wszystkie** i **Rozwiń wszystkie** zmieniają stan wszystkich grup jednym krokiem historii. Pojedynczą grupę nadal można zwinąć osobno. Zwinięcie zapisuje się w pliku.
+Grupa łączy łączniki z oprawami i po **Zatwierdź** wpisuje wspólne oznaczenie na schemacie. Po otwarciu rzutu lista grup jest schowana — pokazuje ją **Pokaż grupy** albo **Nowa grupa**. Po **Dodaj zaznaczone** zaznaczenie jest czyszczone. **Zwiń wszystkie** i **Rozwiń wszystkie** zmieniają stan wszystkich grup jednym krokiem historii. Pojedynczą grupę nadal można zwinąć osobno. Zwinięcie zapisuje się w pliku.
 
 ### Skala rzutu
 
-Narzędzie **Skala rzutu**: dwa różne punkty na rzucie, rzeczywista długość w milimetrach, potem **Zatwierdź skalę**. Długości przewodów zmieniają się dopiero po zatwierdzeniu. Punkty skali przyciągają się co 1 px, niezależnie od siatki i przełącznika przyciągania. Symbole, tekst i przewody nadal używają kroku 10 px.
+Narzędzie **Skala rzutu**: dwa różne punkty na rzucie, rzeczywista długość w milimetrach, potem **Zatwierdź skalę**. Długości przewodów zmieniają się dopiero po zatwierdzeniu. Punkty skali przyciągają się co 1 px, niezależnie od siatki i przełącznika przyciągania. Nowe symbole i tekst używają kroku 10 px. Przesuwanie już umieszczonych symboli oraz punkty przewodów mają krok 1 px.
 
 Po zatwierdzeniu odcinek referencyjny znika z widoku i z eksportu. Punkty i długość zostają w pliku, więc długości przewodów nadal się liczą. Ponowne wejście w narzędzie pokazuje zapisany odcinek do korekty.
 
 ### Przewody, tekst i eksport
 
-Przewód rysuje się ciągiem odcinków (przytrzymaj LPM, PPM kończy trasę). Kolor, grubość i styl (ciągła albo przerywana) ustawia się przed rysowaniem i później we właściwościach. Legenda pokazuje długość każdej widocznej trasy i sumę, gdy skala jest ustawiona.
+Przewód rysuje się ciągiem odcinków (przytrzymaj LPM, PPM kończy trasę). Kolor, grubość i styl (ciągła, przerywana albo kropka-kreska) ustawia się przed rysowaniem i później we właściwościach. W trakcie rysowania **Ctrl+klik** na symbolu podłącza go do trasy. Do istniejącego przewodu dodaje się symbole tak jak do grupy: zaznacz przewód i symbole (Shift albo **Wybór wielu**), potem **Dodaj zaznaczone** we właściwościach. Po **Dodaj zaznaczone** zaznaczenie jest czyszczone. Podłączenia da się odłączyć. Ułożony przewód można schować i ponownie pokazać na schemacie we właściwościach lub w legendzie tras. Nazwa przewodu zostaje we właściwościach i legendzie, ale nie jest rysowana na schemacie edytora ani na rysunku eksportu. PDF po liście symboli dokłada strony **Lista przewodów** z nazwą, kolorem i podłączonymi symbolami. Symbole rysują się nad przewodami.
+
+Legenda pokazuje długość każdej widocznej trasy i sumę, gdy skala jest ustawiona.
 
 Eksport PNG i PDF zawiera tylko widoczne warstwy.
 
@@ -46,6 +48,7 @@ Eksport PNG i PDF zawiera tylko widoczne warstwy.
 
 - Ctrl+N — nowa zakładka
 - Ctrl+O — otwórz
+- Esc — anuluj rysowanie / odznacz
 - Ctrl+S — zapisz, Ctrl+Shift+S — zapisz jako
 - Delete albo Backspace — usuń zaznaczenie
 - Spacja (przytrzymana) albo środkowy przycisk — przesuwanie widoku

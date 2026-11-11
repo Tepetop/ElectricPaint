@@ -1,5 +1,5 @@
 import { cloneData, createId } from "./ids";
-import { allocateCableName, allocateGroupDesignation, allocateLabel, symbolRole } from "./numbering";
+import { allocateGroupDesignation, allocateLabel, symbolRole, syncCableNumbers } from "./numbering";
 import { createDefaultLayer } from "./project";
 import type {
   CableRoute,
@@ -52,11 +52,11 @@ export function addCable(
     width?: number;
     style?: CableStyle;
     name?: string;
+    description?: string;
+    symbolIds?: string[];
+    visible?: boolean;
   },
 ): Project {
-  const { name, nextCableSeq } = input.name
-    ? { name: input.name, nextCableSeq: project.nextCableSeq }
-    : allocateCableName(project);
   const element: CableRoute = {
     type: "cable",
     id: createId(),
@@ -65,9 +65,12 @@ export function addCable(
     color: input.color ?? "#1d4ed8",
     width: input.width ?? 3,
     style: input.style ?? "solid",
-    name,
+    name: input.name ?? "Przewód 0",
+    description: input.description ?? "",
+    symbolIds: input.symbolIds ?? [],
+    visible: input.visible ?? true,
   };
-  return { ...project, nextCableSeq, elements: [...project.elements, element] };
+  return syncCableNumbers({ ...project, elements: [...project.elements, element] });
 }
 
 export function addText(
@@ -90,15 +93,20 @@ export function addText(
 
 export function deleteElements(project: Project, ids: string[]): Project {
   const idSet = new Set(ids);
-  return {
+  return syncCableNumbers({
     ...project,
-    elements: project.elements.filter((el) => !idSet.has(el.id)),
+    elements: project.elements
+      .filter((el) => !idSet.has(el.id))
+      .map((el) => {
+        if (!isCable(el) || el.symbolIds.every((id) => !idSet.has(id))) return el;
+        return { ...el, symbolIds: el.symbolIds.filter((id) => !idSet.has(id)) };
+      }),
     groups: project.groups.map((group) => ({
       ...group,
       switchIds: group.switchIds.filter((id) => !idSet.has(id)),
       luminaireIds: group.luminaireIds.filter((id) => !idSet.has(id)),
     })),
-  };
+  });
 }
 
 export function duplicateElements(project: Project, ids: string[], offset = 24): Project {
@@ -117,6 +125,7 @@ export function duplicateElements(project: Project, ids: string[], offset = 24):
         color: el.color,
         width: el.width,
         style: el.style,
+        description: el.description,
       });
       created.push(next.elements[next.elements.length - 1]);
     } else {

@@ -25,10 +25,10 @@ import {
   updateGroup,
   updateLayer,
 } from "../domain/commands";
-import { snapPoint } from "../domain/geometry";
+import { snapCablePoint, snapPoint } from "../domain/geometry";
 import { createId } from "../domain/ids";
 import { createEmptyProject, defaultSymbolLayerId, isLayerEditable, layerById, layerIdByName } from "../domain/project";
-import type { OverlayElement, Point, Project, SymbolKind } from "../domain/types";
+import { isCable, isSymbol, type CableStyle, type OverlayElement, type Point, type Project, type SymbolKind } from "../domain/types";
 
 export type Tool = "select" | "pan" | "symbol" | "cable" | "text" | "scale";
 
@@ -54,13 +54,15 @@ export type EditorState = {
   showGrid: boolean;
   snap: boolean;
   cableDraft: Point[];
+  cableDraftSymbolIds: string[];
   scaleDraft: Point[];
   scalePreview: Point | null;
   cableColor: string;
   cableWidth: number;
-  cableStyle: "solid" | "dashed";
+  cableStyle: CableStyle;
   viewport: { width: number; height: number };
   restoreAvailable: boolean;
+  groupsHidden: boolean;
   undoDepth: number;
   redoDepth: number;
 };
@@ -73,13 +75,13 @@ const listeners = new Set<() => void>();
 let history: HistoryState = { past: [], future: [] };
 let nextUntitledNumber = 1;
 
-function emptyState(): EditorState {
-  const tabTitle = `Nowy rzut ${nextUntitledNumber++}`;
-  const project = createEmptyProject(tabTitle);
+function emptyState(tabTitle?: string): EditorState {
+  const title = tabTitle === undefined ? `Nowy rzut ${nextUntitledNumber++}` : tabTitle;
+  const project = createEmptyProject(title);
   return {
     activeTabId: createId(),
     tabs: [],
-    tabTitle,
+    tabTitle: title,
     editRevision: 0,
     needsInitialFit: false,
     project,
@@ -96,6 +98,7 @@ function emptyState(): EditorState {
     showGrid: true,
     snap: true,
     cableDraft: [],
+    cableDraftSymbolIds: [],
     scaleDraft: [],
     scalePreview: null,
     cableColor: "#1d4ed8",
@@ -103,14 +106,15 @@ function emptyState(): EditorState {
     cableStyle: "solid",
     viewport: { width: 800, height: 600 },
     restoreAvailable: false,
+    groupsHidden: true,
     undoDepth: 0,
     redoDepth: 0,
   };
 }
 
-let state: EditorState = emptyState();
-let tabOrder = [state.activeTabId];
-let sessions = new Map<string, StoredSession>([[state.activeTabId, { editor: state, history }]]);
+let state: EditorState = emptyState("");
+let tabOrder: string[] = [];
+let sessions = new Map<string, StoredSession>();
 
 function tabSummaries(): TabSummary[] {
   return tabOrder.flatMap((id) => {
@@ -121,7 +125,9 @@ function tabSummaries(): TabSummary[] {
 
 function emit() {
   state = { ...state, tabs: tabSummaries() };
-  sessions.set(state.activeTabId, { editor: state, history });
+  if (tabOrder.includes(state.activeTabId)) {
+    sessions.set(state.activeTabId, { editor: state, history });
+  }
   for (const listener of listeners) listener();
 }
 
@@ -175,8 +181,7 @@ export function closeTab(id: string): boolean {
   tabOrder = tabOrder.filter((item) => item !== id);
   sessions.delete(id);
   if (tabOrder.length === 0) {
-    const fresh = emptyState();
-    tabOrder = [fresh.activeTabId];
+    const fresh = emptyState("");
     history = { past: [], future: [] };
     state = { ...fresh, viewport: state.viewport, restoreAvailable: state.restoreAvailable };
   } else if (id === state.activeTabId) {
@@ -336,6 +341,7 @@ export function setTool(tool: Tool, multiSelect = tool === "select" && state.mul
     multiSelect,
     pendingSymbolKind: tool === "symbol" ? state.pendingSymbolKind : null,
     cableDraft: tool === "cable" ? state.cableDraft : [],
+    cableDraftSymbolIds: tool === "cable" ? state.cableDraftSymbolIds : [],
     scaleDraft: tool === "scale" ? state.scaleDraft : [],
     scalePreview: tool === "scale" ? state.scalePreview : null,
   });
@@ -359,6 +365,10 @@ export function setPan(pan: Point) {
 
 export function setShowGrid(showGrid: boolean) {
   setState({ showGrid });
+}
+
+export function setGroupsHidden(groupsHidden: boolean) {
+  setState({ groupsHidden });
 }
 
 export function setSnap(snap: boolean) {
@@ -448,32 +458,35 @@ function cableLayerId(): string {
   return layerIdByName(state.project, "Przewody", state.activeLayerId);
 }
 
+function samePoints(a: Point[], b: Point[]): boolean {
+  return a.length === b.length && a.every((point, index) => point.x === b[index].x && point.y === b[index].y);
+}
+
+function cableDraftCommitted(draft: Point[]): Point[] {
+  return draft.length <= 1 ? draft : draft.slice(0, -1);
+}
+
+function draftWithPoint(committed: Point[], point: Point): Point[] {
+  return [...committed, snapCablePoint(point)];
+}
+
 export function startCableSegment(point: Point) {
   if (state.tool !== "cable" || !isLayerEditable(state.project, cableLayerId())) return;
-  const snapped = snapPoint(point, state.snap);
-  if (state.cableDraft.length === 0) {
-    setState({ cableDraft: [snapped] });
+  const draft = state.cableDraft;
+  if (draft.length === 0) {
+    setState({ cableDraft: [snapCablePoint(point)] });
     return;
   }
-  setState({ cableDraft: [...state.cableDraft, snapped] });
+  setState({ cableDraft: draftWithPoint(cableDraftCommitted(draft), point) });
 }
 
 export function previewCableSegment(point: Point) {
   if (state.tool !== "cable" || !isLayerEditable(state.project, cableLayerId())) return;
-  const snapped = snapPoint(point, state.snap);
   const draft = state.cableDraft;
-  if (draft.length === 0) {
-    setState({ cableDraft: [snapped] });
-    return;
-  }
-  if (draft.length === 1) {
-    if (draft[0].x === snapped.x && draft[0].y === snapped.y) return;
-    setState({ cableDraft: [draft[0], snapped] });
-    return;
-  }
-  const last = draft[draft.length - 1];
-  if (last.x === snapped.x && last.y === snapped.y) return;
-  setState({ cableDraft: [...draft.slice(0, -1), snapped] });
+  if (draft.length === 0) return;
+  const next = draftWithPoint(cableDraftCommitted(draft), point);
+  if (samePoints(next, draft)) return;
+  setState({ cableDraft: next });
 }
 
 export function commitCableSegment() {
@@ -481,30 +494,43 @@ export function commitCableSegment() {
   if (draft.length < 2) return;
   const last = draft[draft.length - 1];
   const prev = draft[draft.length - 2];
-  if (last.x === prev.x && last.y === prev.y) {
-    setState({ cableDraft: draft.slice(0, -1) });
-  }
+  if (last.x === prev.x && last.y === prev.y) return;
+  setState({ cableDraft: [...draft, last] });
 }
 
 export function finishCable() {
-  if (state.cableDraft.length < 2) {
-    setState({ cableDraft: [] });
+  const draft = state.cableDraft;
+  const committed = draft.length >= 2 &&
+    draft[draft.length - 1].x === draft[draft.length - 2].x &&
+    draft[draft.length - 1].y === draft[draft.length - 2].y
+    ? draft.slice(0, -1)
+    : draft;
+  if (committed.length < 2) {
+    setState({ cableDraft: [], cableDraftSymbolIds: [] });
     return;
   }
   const layerId = cableLayerId();
   if (!isLayerEditable(state.project, layerId)) return;
   const next = addCable(state.project, {
     layerId,
-    points: state.cableDraft,
+    points: committed,
     color: state.cableColor,
     width: state.cableWidth,
     style: state.cableStyle,
+    symbolIds: state.cableDraftSymbolIds,
   });
-  commit(next, { cableDraft: [] });
+  commit(next, { cableDraft: [], cableDraftSymbolIds: [] });
 }
 
 export function cancelCable() {
-  setState({ cableDraft: [] });
+  setState({ cableDraft: [], cableDraftSymbolIds: [] });
+}
+
+export function connectSymbolToCableDraft(id: string) {
+  if (state.tool !== "cable") return;
+  const el = state.project.elements.find((item) => item.id === id);
+  if (!el || !isSymbol(el) || state.cableDraftSymbolIds.includes(id)) return;
+  setState({ cableDraftSymbolIds: [...state.cableDraftSymbolIds, id] });
 }
 
 export function clickScalePoint(point: Point) {
@@ -575,6 +601,20 @@ export function commitMove(ids: string[], dx: number, dy: number) {
 }
 
 export function commitCablePoints(id: string, points: Point[]) {
+  const el = state.project.elements.find((item) => item.id === id);
+  if (!el || !isCable(el)) return;
+  commit(replaceElement(state.project, id, { points: points.map(snapCablePoint) } as Partial<OverlayElement>));
+}
+
+export function insertCablePoint(id: string, segmentIndex: number, point: Point) {
+  const el = state.project.elements.find((item) => item.id === id);
+  if (!el || !isCable(el)) return;
+  if (segmentIndex < 0 || segmentIndex >= el.points.length - 1) return;
+  const points = [
+    ...el.points.slice(0, segmentIndex + 1),
+    snapCablePoint(point),
+    ...el.points.slice(segmentIndex + 1),
+  ];
   commit(replaceElement(state.project, id, { points } as Partial<OverlayElement>));
 }
 
@@ -624,7 +664,7 @@ export function commitDeleteLayer(layerId: string, mode: { type: "delete-element
 }
 
 export function commitAddGroup() {
-  commit(addGroup(state.project));
+  commit(addGroup(state.project), { groupsHidden: false });
 }
 
 export function commitUpdateGroup(
@@ -643,7 +683,20 @@ export function commitDeleteGroup(groupId: string) {
 }
 
 export function commitAssignSelected(groupId: string) {
-  commit(assignSelectedToGroup(state.project, groupId, state.selectedIds));
+  commit(assignSelectedToGroup(state.project, groupId, state.selectedIds), { selectedIds: [] });
+}
+
+export function commitAssignSelectedToCable(cableId: string) {
+  const el = state.project.elements.find((item) => item.id === cableId);
+  if (!el || !isCable(el)) return;
+  const connected = new Set(el.symbolIds);
+  const added = state.selectedIds.filter((id) => {
+    if (connected.has(id)) return false;
+    const item = state.project.elements.find((entry) => entry.id === id);
+    return Boolean(item && isSymbol(item));
+  });
+  if (added.length === 0) return;
+  commit(replaceElement(state.project, cableId, { symbolIds: [...el.symbolIds, ...added] } as Partial<OverlayElement>), { selectedIds: [] });
 }
 
 export function commitRemoveFromGroup(

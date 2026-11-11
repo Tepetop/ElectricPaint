@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { addCable, addGroup, addLayer, addSymbol, addText, applyGroupLabels, assignSelectedToGroup, deleteElements, deleteGroup, deleteLayer, duplicateElements, moveElements, moveElementsToLayer, scaleAllSymbols } from "./commands";
 import { migrateProject } from "./migrations";
 import { allocateLabel, symbolRole } from "./numbering";
-import { createEmptyProject } from "./project";
+import { createEmptyProject, defaultSymbolLayerId } from "./project";
 import { SCHEMA_VERSION } from "./types";
-import { isSymbol } from "./types";
+import { isCable, isSymbol } from "./types";
 
 describe("numbering", () => {
   it("nadaje kolejne oznaczenia L/G/O", () => {
@@ -18,6 +18,12 @@ describe("numbering", () => {
     expect(symbolRole("socket-double")).toBe("socket");
     expect(symbolRole("ground")).toBe("other");
     expect(symbolRole("distribution-board")).toBe("other");
+    expect(symbolRole("outlet-single-phase")).toBe("outlet");
+    expect(symbolRole("switch-roller")).toBe("switch");
+    expect(allocateLabel(createEmptyProject(), "outlet-three-phase").label).toBe("W1");
+    expect(allocateLabel(createEmptyProject(), "switch-roller").label).toBe("R1");
+    const outlets = project.layers.find((layer) => layer.name === "Wypusty");
+    expect(defaultSymbolLayerId(project, "outlet-single-phase", project.layers[0].id)).toBe(outlets?.id);
   });
 
   it("po usunięciu bierze najmniejszy wolny numer z symboli na rzucie", () => {
@@ -35,6 +41,31 @@ describe("numbering", () => {
     project = deleteElements(project, [project.elements[1].id]);
     project = addSymbol(project, { kind: "switch-single", layerId, x: 60, y: 0 });
     expect(project.elements.filter(isSymbol).map((el) => el.label).sort()).toEqual(["L1", "L2", "L3"]);
+  });
+
+  it("numeruje przewody od 1 do ich liczby na rzucie", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    const points = [{ x: 0, y: 0 }, { x: 10, y: 0 }];
+    const names = () => project.elements.filter(isCable).map((el) => el.name);
+
+    for (let i = 0; i < 3; i++) project = addCable(project, { layerId, points });
+    expect(names()).toEqual(["Przewód 1", "Przewód 2", "Przewód 3"]);
+    expect(project.nextCableSeq).toBe(4);
+
+    project = { ...project, nextCableSeq: 40 };
+    project = deleteElements(project, project.elements.map((el) => el.id));
+    project = addCable(project, { layerId, points });
+    expect(names()).toEqual(["Przewód 1"]);
+
+    project = addCable(project, { layerId, points });
+    project = addCable(project, { layerId, points });
+    project = deleteElements(project, [project.elements[0].id]);
+    expect(names()).toEqual(["Przewód 1", "Przewód 2"]);
+
+    project = addCable(project, { layerId, points, name: "YDY 3x1.5" });
+    project = deleteElements(project, [project.elements[0].id]);
+    expect(names()).toEqual(["Przewód 1", "YDY 3x1.5"]);
   });
 });
 
@@ -76,6 +107,25 @@ describe("commands", () => {
     expect(project.elements.filter(isSymbol).map((el) => el.label)).toEqual(["AL1", "AL2", "AZ1", "AZ2", "AZ3"]);
   });
 
+  it("usuwa podłączenie symbolu z przewodu i nie kopiuje go przy duplikacie", () => {
+    let project = createEmptyProject();
+    const layerId = project.layers[0].id;
+    project = addSymbol(project, { kind: "switch-single", layerId, x: 0, y: 0 });
+    const symbolId = project.elements[0].id;
+    project = addCable(project, {
+      layerId,
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      symbolIds: [symbolId],
+    });
+    const cableId = project.elements[1].id;
+    project = duplicateElements(project, [cableId]);
+    const copy = project.elements.filter(isCable)[1];
+    expect(copy.symbolIds).toEqual([]);
+    project = deleteElements(project, [symbolId]);
+    const remaining = project.elements.find((el) => el.id === cableId);
+    expect(remaining && isCable(remaining) && remaining.symbolIds).toEqual([]);
+  });
+
   it("przesuwa, duplikuje i usuwa z czyszczeniem grup", () => {
     let project = createEmptyProject();
     const layerId = project.layers[0].id;
@@ -102,7 +152,7 @@ describe("commands", () => {
     const second = project.layers[1].id;
     project = addSymbol(project, { kind: "socket-single", layerId: second, x: 1, y: 1 });
     project = deleteLayer(project, second, { type: "move-to", targetId: first });
-    expect(project.layers).toHaveLength(5);
+    expect(project.layers).toHaveLength(6);
     expect(project.elements[0].layerId).toBe(first);
   });
 
@@ -194,6 +244,23 @@ describe("migrations", () => {
     const symbol = migrated.elements[0];
     expect(isSymbol(symbol) && symbol.description).toBe("");
     expect(migrated.groups[0].collapsed).toBe(false);
+  });
+
+  it("zgrywa numerację przewodów z ich liczbą", () => {
+    const migrated = migrateProject({
+      schemaVersion: 1,
+      layers: [{ id: "l1", name: "W", visible: true, locked: false }],
+      nextCableSeq: 12,
+      elements: [
+        { type: "cable", id: "c1", layerId: "l1", points: [{ x: 0, y: 0 }], color: "#000", width: 3, style: "solid", name: "Przewód 7" },
+        { type: "cable", id: "c2", layerId: "l1", points: [{ x: 0, y: 0 }], color: "#000", width: 3, style: "solid", name: "Oświetlenie salon" },
+      ],
+    });
+    expect(migrated.elements.filter(isCable).map((el) => el.name)).toEqual(["Przewód 1", "Oświetlenie salon"]);
+    expect(migrated.elements.filter(isCable).every((el) => el.description === "")).toBe(true);
+    expect(migrated.elements.filter(isCable).every((el) => el.symbolIds.length === 0)).toBe(true);
+    expect(migrated.elements.filter(isCable).every((el) => el.visible === true)).toBe(true);
+    expect(migrated.nextCableSeq).toBe(2);
   });
 
   it("odrzuca nowszą wersję schematu", () => {

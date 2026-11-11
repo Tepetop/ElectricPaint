@@ -1,5 +1,6 @@
+import { syncCableNumbers } from "./numbering";
 import { createDefaultLayer } from "./project";
-import { SCHEMA_VERSION, isSymbol, type ControlGroup, type OverlayElement, type Project } from "./types";
+import { SCHEMA_VERSION, isCable, isSymbol, type ControlGroup, type OverlayElement, type Project } from "./types";
 
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== "object") {
@@ -21,6 +22,15 @@ export function migrateProject(raw: unknown): Project {
     if (isSymbol(withLayer as OverlayElement)) {
       return { ...withLayer, description: (withLayer as { description?: string }).description ?? "" };
     }
+    if (isCable(withLayer as OverlayElement)) {
+      const cable = withLayer as { description?: string; symbolIds?: string[]; visible?: boolean };
+      return {
+        ...withLayer,
+        description: cable.description ?? "",
+        symbolIds: cable.symbolIds ?? [],
+        visible: cable.visible ?? true,
+      };
+    }
     return withLayer;
   });
   const groups = (Array.isArray(data.groups) ? data.groups : []).map((group) => ({
@@ -28,7 +38,7 @@ export function migrateProject(raw: unknown): Project {
     collapsed: Boolean((group as ControlGroup).collapsed),
   }));
 
-  return {
+  return syncCableNumbers({
     schemaVersion: SCHEMA_VERSION,
     name: data.name || "Projekt",
     canvas: data.canvas ?? { width: 1600, height: 1000 },
@@ -41,5 +51,5 @@ export function migrateProject(raw: unknown): Project {
     nextCableSeq: data.nextCableSeq ?? 1,
     defaultSymbolScale: data.defaultSymbolScale ?? 1,
     scaleReference: data.scaleReference ?? null,
-  };
+  });
 }

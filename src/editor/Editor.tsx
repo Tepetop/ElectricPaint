@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import {
   cancelCable,
   cancelScale,
+  clearSelection,
   deleteSelected,
   duplicateSelected,
   finishCable,
@@ -63,6 +64,7 @@ export function Editor() {
       if (e.key === "Escape") {
         cancelCable();
         cancelScale();
+        clearSelection();
         return;
       }
       if (!ctrl && e.key.toLowerCase() === "v") setMultiSelect(false);

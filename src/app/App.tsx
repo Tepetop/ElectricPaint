@@ -5,7 +5,6 @@ import {
   bindProjectHandle,
   checkAutosave,
   exportCurrentPdf,
-  exportCurrentPng,
   forgetProjectHandle,
   importBackgroundFile,
   loadDemoProject,
@@ -75,6 +74,7 @@ export function App() {
       const ctrl = e.ctrlKey || e.metaKey;
       if (ctrl && e.key.toLowerCase() === "s") {
         e.preventDefault();
+        if (getEditorState().tabs.length === 0) return;
         void saveProject(e.shiftKey);
       }
       if (ctrl && e.key.toLowerCase() === "o") {
@@ -132,6 +132,10 @@ export function App() {
 
   async function onImportFile(file: File | undefined, chosenPage?: number, tabId = getEditorState().activeTabId) {
     if (!file) return;
+    if (getEditorState().tabs.length === 0) {
+      newProject();
+      tabId = getEditorState().activeTabId;
+    }
     try {
       const result = await importBackgroundFile(file, chosenPage, tabId);
       setImportError(null);
@@ -207,37 +211,49 @@ export function App() {
     void onOpen();
   };
 
+  const showEditor = tabs.length > 0;
+
   return (
-    <div className="shell">
-      <Toolbar
-        onNew={() => newProject()}
-        onOpen={() => openActionRef.current()}
-        onSave={() => void saveProject(false)}
-        onSaveAs={() => void saveProject(true)}
-        onImport={() => importRef.current?.click()}
-        onDemo={loadDemoProject}
-        onExportPng={() => void exportCurrentPng()}
-        onExportPdf={() => void exportCurrentPdf()}
-      />
-      <div className="tab-bar" role="tablist" aria-label="Otwarte rzuty">
-        {tabs.map((tab) => (
-          <div className={`tab-item ${tab.id === activeTabId ? "active" : ""}`} key={tab.id}>
-            <button type="button" role="tab" aria-selected={tab.id === activeTabId} onClick={() => switchTab(tab.id)}>
-              {tab.title}{tab.dirty ? " •" : ""}
-            </button>
-            <button type="button" className="tab-close" aria-label={`Zamknij ${tab.title}`} onClick={() => {
-              if (closeTab(tab.id)) {
-                forgetProjectHandle(tab.id);
-                void persistAutosave();
-              }
-            }}>×</button>
+    <div className={showEditor ? "shell" : "shell start"}>
+      {showEditor ? (
+        <>
+          <Toolbar
+            onNew={() => newProject()}
+            onOpen={() => openActionRef.current()}
+            onSave={() => void saveProject(false)}
+            onSaveAs={() => void saveProject(true)}
+            onImport={() => importRef.current?.click()}
+            onDemo={loadDemoProject}
+            onExportPdf={() => void exportCurrentPdf()}
+          />
+          <div className="tab-bar" role="tablist" aria-label="Otwarte rzuty">
+            {tabs.map((tab) => (
+              <div className={`tab-item ${tab.id === activeTabId ? "active" : ""}`} key={tab.id}>
+                <button type="button" role="tab" aria-selected={tab.id === activeTabId} onClick={() => switchTab(tab.id)}>
+                  {tab.title}{tab.dirty ? " •" : ""}
+                </button>
+                <button type="button" className="tab-close" aria-label={`Zamknij ${tab.title}`} onClick={() => {
+                  if (closeTab(tab.id)) {
+                    forgetProjectHandle(tab.id);
+                    void persistAutosave();
+                  }
+                }}>×</button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <SymbolPalette />
-      <Editor />
-      <RightPanel />
-      <StatusBar />
+          <SymbolPalette />
+          <Editor />
+          <RightPanel />
+          <StatusBar />
+        </>
+      ) : (
+        <div className="start-screen">
+          <h1>ElectricPaint</h1>
+          <button type="button" onClick={() => newProject()}>Nowy projekt</button>
+          <button type="button" onClick={() => openActionRef.current()}>Otwórz projekt</button>
+          <button type="button" onClick={loadDemoProject}>Przykład</button>
+        </div>
+      )}
       <input
         ref={openRef}
         className="hidden-file"

@@ -15,7 +15,7 @@ import {
   setBackground,
   setRestoreAvailable,
 } from "../state/editorStore";
-import { exportPdfBytes, exportPngBytes } from "../editor/exportDoc";
+import { exportPdfBytes } from "../editor/exportDoc";
 import { addCable, addGroup, addSymbol, assignSelectedToGroup } from "../domain/commands";
 
 export async function importBackgroundFile(file: File, page?: number, tabId = getEditorState().activeTabId) {
@@ -132,16 +132,11 @@ export async function openProjectFile(file: File, storedPath = file.name): Promi
   return getEditorState().activeTabId;
 }
 
-export async function exportCurrentPng() {
-  const { project, backgroundDataUrl } = getEditorState();
-  const bytes = await exportPngBytes(project, backgroundDataUrl, 2);
-  await saveBytesWithDialog(`${project.name || "rzut"}.png`, bytes, [{ name: "PNG", extensions: ["png"] }]);
-}
-
 export async function exportCurrentPdf() {
-  const { project, backgroundDataUrl } = getEditorState();
+  const { project, backgroundDataUrl, filePath } = getEditorState();
   const bytes = await exportPdfBytes(project, backgroundDataUrl);
-  await saveBytesWithDialog(`${project.name || "rzut"}.pdf`, bytes, [{ name: "PDF", extensions: ["pdf"] }]);
+  const savedName = filePath?.split(/[\\/]/).pop()?.replace(/\.epaint$/i, "");
+  await saveBytesWithDialog(`${savedName || project.name || "rzut"}.pdf`, bytes, [{ name: "PDF", extensions: ["pdf"] }]);
 }
 
 export function loadDemoProject() {

@@ -1,11 +1,35 @@
-import { GRID_SIZE, type Point, type ScaleReference } from "./types";
+import { symbolRole } from "./numbering";
+import { GRID_SIZE, type CableStyle, type Point, type ScaleReference, type SymbolKind } from "./types";
 
 export const SYMBOL_SIZE = 48;
+
+export function cableDash(style: CableStyle): number[] | undefined {
+  if (style === "dashed") return [12, 8];
+  if (style === "dot-dash") return [2, 8, 12, 8];
+  return undefined;
+}
 const LABEL_GAP = 4;
 const LABEL_DY = 6;
+const LABEL_DX = 8;
+const LABEL_HEIGHT = 12;
+const NORTH_GAP = 2;
 
-function localLabelPoint(scale: number, offset?: Point): Point {
+function northTopRatio(kind?: SymbolKind): number | null {
+  if (!kind) return null;
+  const role = symbolRole(kind);
+  if (role !== "socket" && role !== "outlet") return null;
+  return kind === "socket-antenna" ? 0.19 : 0.35;
+}
+
+function localLabelPoint(scale: number, offset?: Point, kind?: SymbolKind): Point {
   const size = SYMBOL_SIZE * scale;
+  const topRatio = northTopRatio(kind);
+  if (topRatio != null) {
+    return {
+      x: size / 2 - LABEL_DX + (offset?.x ?? 0),
+      y: topRatio * size - LABEL_HEIGHT - NORTH_GAP + (offset?.y ?? 0),
+    };
+  }
   return {
     x: size + LABEL_GAP + (offset?.x ?? 0),
     y: size / 2 - LABEL_DY + (offset?.y ?? 0),
@@ -18,8 +42,9 @@ export function symbolLabelPosition(el: {
   scale: number;
   rotation?: number;
   labelOffset?: Point;
+  kind?: SymbolKind;
 }): Point {
-  const local = localLabelPoint(el.scale, el.labelOffset);
+  const local = localLabelPoint(el.scale, el.labelOffset, el.kind);
   const rad = ((el.rotation ?? 0) * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
@@ -30,7 +55,7 @@ export function symbolLabelPosition(el: {
 }
 
 export function labelOffsetFromWorld(
-  el: { x: number; y: number; scale: number; rotation?: number },
+  el: { x: number; y: number; scale: number; rotation?: number; kind?: SymbolKind },
   world: Point,
 ): Point {
   const rad = (-(el.rotation ?? 0) * Math.PI) / 180;
@@ -38,7 +63,7 @@ export function labelOffsetFromWorld(
   const sin = Math.sin(rad);
   const dx = world.x - el.x;
   const dy = world.y - el.y;
-  const base = localLabelPoint(el.scale);
+  const base = localLabelPoint(el.scale, undefined, el.kind);
   return {
     x: dx * cos - dy * sin - base.x,
     y: dx * sin + dy * cos - base.y,
@@ -52,6 +77,10 @@ export function snapValue(value: number, enabled: boolean, grid = GRID_SIZE): nu
 
 export function snapPoint(point: Point, enabled: boolean, grid = GRID_SIZE): Point {
   return { x: snapValue(point.x, enabled, grid), y: snapValue(point.y, enabled, grid) };
+}
+
+export function snapCablePoint(point: Point): Point {
+  return snapPoint(point, true, 1);
 }
 
 export function clamp(value: number, min: number, max: number): number {
@@ -107,4 +136,39 @@ export function boundsContain(
   h: number,
 ): boolean {
   return x >= box.x && y >= box.y && x + w <= box.x + box.width && y + h <= box.y + box.height;
+}
+
+export function segmentMidpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+export function closestPointOnSegment(
+  p: Point,
+  a: Point,
+  b: Point,
+): { point: Point; distance: number; t: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) {
+    return { point: { x: a.x, y: a.y }, distance: Math.hypot(p.x - a.x, p.y - a.y), t: 0 };
+  }
+  const t = clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / len2, 0, 1);
+  const point = { x: a.x + t * dx, y: a.y + t * dy };
+  return { point, distance: Math.hypot(p.x - point.x, p.y - point.y), t };
+}
+
+export function findClosestCableSegment(
+  points: Point[],
+  p: Point,
+): { index: number; point: Point; distance: number } | null {
+  if (points.length < 2) return null;
+  let best: { index: number; point: Point; distance: number } | null = null;
+  for (let i = 0; i < points.length - 1; i++) {
+    const hit = closestPointOnSegment(p, points[i], points[i + 1]);
+    if (!best || hit.distance < best.distance) {
+      best = { index: i, point: hit.point, distance: hit.distance };
+    }
+  }
+  return best;
 }

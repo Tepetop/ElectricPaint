@@ -1,9 +1,10 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
-import { isSymbol } from "../domain/types";
-import { commitAddLayer, getEditorState, placeAt, resetEditorForTests, selectIds, setPendingSymbol } from "../state/editorStore";
+import { isCable, isSymbol } from "../domain/types";
+import { commitAddLayer, connectSymbolToCableDraft, finishCable, getEditorState, placeAt, previewCableSegment, resetEditorForTests, selectIds, setPendingSymbol, setTool, startCableSegment } from "../state/editorStore";
 import { PropertiesPanel } from "./PropertiesPanel";
+import { RightPanel } from "./RightPanel";
 
 function placedSymbol() {
   setPendingSymbol("switch-single");
@@ -63,6 +64,62 @@ describe("PropertiesPanel rotation", () => {
     expect(isSymbol(described) && described.description).toBe("przy łóżku");
   });
 
+  it("zapisuje opis przewodu", async () => {
+    const user = userEvent.setup();
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements[0];
+    if (!isCable(cable)) throw new Error("expected cable");
+    expect(cable.description).toBe("");
+    selectIds([cable.id]);
+    render(<PropertiesPanel />);
+    await user.type(screen.getByRole("textbox", { name: "Opis" }), "obwód gniazd");
+    const described = getEditorState().project.elements[0];
+    expect(isCable(described) && described.description).toBe("obwód gniazd");
+  });
+
+  it("pokazuje podłączone symbole i odłącza je", async () => {
+    const user = userEvent.setup();
+    placedSymbol();
+    const symbol = getEditorState().project.elements[0];
+    if (!isSymbol(symbol)) throw new Error("expected symbol");
+    setTool("cable");
+    connectSymbolToCableDraft(symbol.id);
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("expected cable");
+    selectIds([cable.id]);
+    render(<PropertiesPanel />);
+    expect(screen.getByText(`${symbol.label} (Łącznik jednobiegunowy IP20)`)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Odłącz" }));
+    const updated = getEditorState().project.elements.find(isCable);
+    expect(updated?.symbolIds).toEqual([]);
+    expect(screen.getByText("brak")).toBeInTheDocument();
+  });
+
+  it("dodaje zaznaczone symbole do istniejącego przewodu", async () => {
+    const user = userEvent.setup();
+    const symbol = placedSymbol();
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("expected cable");
+    selectIds([cable.id, symbol.id]);
+    render(<PropertiesPanel />);
+    expect(screen.getByRole("button", { name: "Dodaj zaznaczone" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Dodaj zaznaczone" }));
+    const updated = getEditorState().project.elements.find(isCable);
+    expect(updated?.symbolIds).toEqual([symbol.id]);
+    expect(getEditorState().selectedIds).toEqual([]);
+    expect(screen.getByText("Zaznacz element, aby edytować właściwości.")).toBeInTheDocument();
+  });
+
   it("przenosi wiele elementów między warstwami z panelu właściwości", async () => {
     const user = userEvent.setup();
     placedSymbol();
@@ -76,5 +133,29 @@ describe("PropertiesPanel rotation", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Warstwa" }), target);
     expect(getEditorState().project.elements.every((el) => el.layerId === target)).toBe(true);
     expect(screen.queryByRole("spinbutton", { name: "Obrót" })).not.toBeInTheDocument();
+  });
+
+  it("zmienia styl przewodu na kropka-kreska i chowa/pokazuje przewód na schemacie", async () => {
+    const user = userEvent.setup();
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    previewCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("expected cable");
+    selectIds([cable.id]);
+    render(<RightPanel />);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Styl" }), "dot-dash");
+    expect(getEditorState().project.elements.find(isCable)?.style).toBe("dot-dash");
+
+    await user.click(screen.getByRole("button", { name: "Schowaj na schemacie" }));
+    expect(getEditorState().project.elements.find(isCable)?.visible).toBe(false);
+    expect(screen.getByRole("button", { name: "Pokaż na schemacie" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pokaż" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Pokaż" }));
+    expect(getEditorState().project.elements.find(isCable)?.visible).toBe(true);
+    expect(screen.getByRole("button", { name: "Schowaj" })).toBeInTheDocument();
   });
 });

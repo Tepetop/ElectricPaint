@@ -13,10 +13,16 @@ import {
   commitUpdateLayer,
   commitSetAllGroupsCollapsed,
   commitAddGroup,
+  commitAssignSelected,
+  commitAssignSelectedToCable,
   commitScaleLength,
   commitCableSegment,
+  connectSymbolToCableDraft,
+  cancelCable,
+  deleteSelected,
   duplicateSelected,
   finishCable,
+  insertCablePoint,
   getEditorState,
   getTabState,
   closeTab,
@@ -89,6 +95,90 @@ describe("editor history", () => {
     expect(getEditorState().cableDraft).toEqual([]);
     expect(getEditorState().tool).toBe("cable");
   });
+
+  it("kładzie punkty przewodu z dokładnością 1 px", () => {
+    setTool("cable");
+    startCableSegment({ x: 12.4, y: 7.6 });
+    previewCableSegment({ x: 40.4, y: 7.2 });
+    expect(getEditorState().cableDraft).toEqual([
+      { x: 12, y: 8 },
+      { x: 40, y: 7 },
+    ]);
+  });
+
+  it("dokłada punkt na zaznaczonym przewodzie i obsługuje cofanie", () => {
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 80, y: 0 });
+    finishCable();
+    const id = getEditorState().project.elements[0].id;
+    insertCablePoint(id, 0, { x: 40, y: 0 });
+    const cable = getEditorState().project.elements[0];
+    expect(isCable(cable)).toBe(true);
+    if (!isCable(cable)) return;
+    expect(cable.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 40, y: 0 },
+      { x: 80, y: 0 },
+    ]);
+    undo();
+    const undone = getEditorState().project.elements[0];
+    if (!isCable(undone)) return;
+    expect(undone.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 80, y: 0 },
+    ]);
+    redo();
+    const redone = getEditorState().project.elements[0];
+    if (!isCable(redone)) return;
+    expect(redone.points).toHaveLength(3);
+  });
+
+  it("podłącza symbole do kładzionego przewodu bez duplikatów", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    placeAt({ x: 40, y: 0 });
+    const [first, second] = getEditorState().project.elements.map((el) => el.id);
+    setTool("cable");
+    connectSymbolToCableDraft(first);
+    connectSymbolToCableDraft(first);
+    connectSymbolToCableDraft(second);
+    expect(getEditorState().cableDraftSymbolIds).toEqual([first, second]);
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 80, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    expect(cable?.symbolIds).toEqual([first, second]);
+    expect(getEditorState().cableDraftSymbolIds).toEqual([]);
+  });
+
+  it("anulowanie trasy czyści listę podłączeń", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    const id = getEditorState().project.elements[0].id;
+    setTool("cable");
+    connectSymbolToCableDraft(id);
+    cancelCable();
+    expect(getEditorState().cableDraftSymbolIds).toEqual([]);
+    connectSymbolToCableDraft(id);
+    setTool("select");
+    expect(getEditorState().cableDraftSymbolIds).toEqual([]);
+  });
+
+  it("usunięcie symbolu usuwa go z podłączeń przewodu", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 0, y: 0 });
+    const symbolId = getEditorState().project.elements[0].id;
+    setTool("cable");
+    connectSymbolToCableDraft(symbolId);
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 40, y: 0 });
+    finishCable();
+    selectIds([symbolId]);
+    deleteSelected();
+    const cable = getEditorState().project.elements.find(isCable);
+    expect(cable?.symbolIds).toEqual([]);
+  });
 });
 
 describe("tabs", () => {
@@ -155,10 +245,10 @@ describe("tabs", () => {
     }
   });
 
-  it("zamknięcie ostatniej zakładki pozostawia pusty rzut", () => {
+  it("zamknięcie ostatniej zakładki wraca do stanu bez zakładek", () => {
     const id = getEditorState().activeTabId;
     expect(closeTab(id)).toBe(true);
-    expect(getEditorState().tabs).toHaveLength(1);
+    expect(getEditorState().tabs).toHaveLength(0);
     expect(getEditorState().activeTabId).not.toBe(id);
     expect(getEditorState().project.elements).toHaveLength(0);
   });
@@ -280,6 +370,34 @@ describe("layers and groups", () => {
     expect(getEditorState().selectedIds).toEqual([]);
   });
 
+  it("nowa zakładka chowa grupy, a utworzenie grupy je pokazuje", () => {
+    expect(getEditorState().groupsHidden).toBe(true);
+    newProject();
+    expect(getEditorState().groupsHidden).toBe(true);
+    commitAddGroup();
+    expect(getEditorState().groupsHidden).toBe(false);
+  });
+
+  it("dodanie zaznaczonych czyści zaznaczenie", () => {
+    setPendingSymbol("switch-single");
+    placeAt({ x: 10, y: 10 });
+    const symbolId = getEditorState().project.elements[0].id;
+    commitAddGroup();
+    selectIds([symbolId]);
+    commitAssignSelected(getEditorState().project.groups[0].id);
+    expect(getEditorState().selectedIds).toEqual([]);
+
+    setTool("cable");
+    startCableSegment({ x: 0, y: 0 });
+    startCableSegment({ x: 40, y: 0 });
+    finishCable();
+    const cable = getEditorState().project.elements.find(isCable);
+    if (!cable) throw new Error("brak przewodu");
+    selectIds([symbolId, cable.id]);
+    commitAssignSelectedToCable(cable.id);
+    expect(getEditorState().selectedIds).toEqual([]);
+  });
+
   it("zbiorcze zwinięcie grup tworzy tylko jeden krok", () => {
     commitAddGroup();
     commitAddGroup();
@@ -303,21 +421,22 @@ describe("automatic layers", () => {
     return layer.id;
   }
 
-  it("creates five named layers on each new drawing", () => {
-    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
+  it("creates six named layers on each new drawing", () => {
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Wypusty", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
     newProject();
-    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
+    expect(getEditorState().project.layers.map((layer) => layer.name)).toEqual(["Gniazda", "Wypusty", "Oświetlenie", "Łączniki", "Przewody", "Inne"]);
   });
 
   it("routes symbols, cables and text independently of the active layer", () => {
     setActiveLayer(layerId("Inne"));
-    for (const kind of ["socket-single", "switch-single", "wall-light", "ground"] as const) {
+    for (const kind of ["socket-single", "switch-single", "wall-light", "ground", "outlet-single-phase"] as const) {
       setPendingSymbol(kind);
       placeAt({ x: 10, y: 10 });
     }
     expect(getEditorState().project.elements.map((element) => element.layerId)).toEqual([
-      layerId("Gniazda"), layerId("Łączniki"), layerId("Oświetlenie"), layerId("Inne"),
+      layerId("Gniazda"), layerId("Łączniki"), layerId("Oświetlenie"), layerId("Inne"), layerId("Wypusty"),
     ]);
+    expect(getEditorState().project.elements.at(-1)).toMatchObject({ type: "symbol", label: "W1" });
     setTool("cable");
     startCableSegment({ x: 0, y: 0 });
     startCableSegment({ x: 20, y: 0 });

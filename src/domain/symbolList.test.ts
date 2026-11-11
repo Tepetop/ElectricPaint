@@ -23,7 +23,7 @@ describe("collectSymbolList", () => {
 
     const rows = collectSymbolList(project);
     expect(rows).toEqual([
-      { label: "L1", typeName: "Łącznik jednobiegunowy", groups: "A", description: "przy łóżku" },
+      { label: "L1", typeName: "Łącznik jednobiegunowy IP20", groups: "A", description: "przy łóżku" },
       { label: "O1", typeName: "Wypust oświetleniowy", groups: "A", description: "" },
     ]);
   });
